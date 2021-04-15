@@ -1,0 +1,69 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Create a button control</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for button {manipulate}"><tr><td>button {manipulate}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Create a button control</h2>
+
+<h3>Description</h3>
+
+<p>Create a button control to enable triggering of conditional actions within manipulate expressions. When the user presses the button the manipulate expression will be executed with its associated value set to TRUE (in all other cases the value will be set to FALSE). 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+button(label)
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>label</code></td>
+<td>
+
+<p>Label for button.
+</p>
+</td></tr>
+</table>
+
+
+<h3>Value</h3>
+
+<p>An object of class &quot;manipulator.button&quot; which can be passed to the <code><a href="manipulate.html">manipulate</a></code> function.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code><a href="manipulate.html">manipulate</a></code>, <code><a href="slider.html">slider</a></code>, <code><a href="picker.html">picker</a></code>, <code><a href="checkbox.html">checkbox</a></code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre>
+## Not run: 
+
+## use a button to reset a random seed
+manipulate(
+  {
+    if(resetSeed)
+      set.seed(sample(1:1000))
+
+    hist(rnorm(n=100, mean=0, sd=3), breaks=bins)
+  },
+  bins = slider(1, 20, step=1, initial =5, label="Bins"),
+  resetSeed = button("Reset Seed")
+)
+
+
+## End(Not run)
+</pre>
+
+<hr /><div style="text-align: center;">[Package <em>manipulate</em> version 0.98.1103 <a href="00Index.html">Index</a>]</div>
+</body></html>

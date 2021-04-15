@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Interactive Plots for RStudio</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for manipulate-package {manipulate}"><tr><td>manipulate-package {manipulate}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Interactive Plots for RStudio</h2>
+
+<h3>Description</h3>
+
+<p>Interactive plotting functions for use within RStudio.
+</p>
+
+
+<h3>Details</h3>
+
+<p>The <code><a href="manipulate.html">manipulate</a></code> function accepts a plotting expression and a set of controls (e.g. <code><a href="slider.html">slider</a></code>, <code><a href="picker.html">picker</a></code>, <code><a href="checkbox.html">checkbox</a></code>, or <code><a href="button.html">button</a></code>) which are used to dynamically change values within the expression. When a value is changed using its corresponding control the expression is automatically re-executed and the plot is redrawn.
+</p>
+<p>For example, to create a plot that enables manipulation of a parameter using a slider control you could use syntax like this: 
+</p>
+<p><code>manipulate(plot(1:x), x = slider(1, 10))</code>
+</p>
+<p>After this code is executed the plot is drawn using an initial value of 1 for <code>x</code>. A manipulator panel is also opened adjacent to the plot which contains a slider control used to change the value of <code>x</code> from 1 to 10.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>RStudio
+</p>
+<p>Maintainer: RStudio &lt;info@rstudio.com&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre>
+## Not run: 
+
+## Create a plot with a manipulator
+manipulate(plot(1:x), x = slider(5, 10))
+
+## Using more than one slider
+manipulate(
+  plot(cars, xlim=c(x.min,x.max)), 
+  x.min=slider(0,15), 
+  x.max=slider(15,30))
+
+## Filtering data with a picker
+manipulate(
+  barplot(as.matrix(longley[,factor]), 
+          beside = TRUE, main = factor),
+  factor = picker("GNP", "Unemployed", "Employed"))
+
+## Create a picker with labels
+manipulate(
+  plot(pressure, type = type), 
+  type = picker("points" = "p", "line" = "l", "step" = "s"))
+
+## Toggle boxplot outlier display using checkbox
+manipulate(
+  boxplot(Freq ~ Class, data = Titanic, outline = outline),
+  outline = checkbox(FALSE, "Show outliers"))
+
+## Combining controls
+manipulate(
+  plot(cars, xlim = c(x.min, x.max), type = type, 
+       axes = axes, ann = label),
+  x.min = slider(0,15),
+  x.max = slider(15,30, initial = 25),
+  type = picker("p", "l", "b", "c", "o", "h", "s", "S", "n"),
+  axes = checkbox(TRUE, "Draw Axes"),
+  label = checkbox(FALSE, "Draw Labels"))
+
+## End(Not run)
+</pre>
+
+<hr /><div style="text-align: center;">[Package <em>manipulate</em> version 0.98.1103 <a href="00Index.html">Index</a>]</div>
+</body></html>

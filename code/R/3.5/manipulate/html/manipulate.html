@@ -1,0 +1,103 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Create an interactive plot</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for manipulate {manipulate}"><tr><td>manipulate {manipulate}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Create an interactive plot</h2>
+
+<h3>Description</h3>
+
+<p>The <code><a href="manipulate.html">manipulate</a></code> function accepts a plotting expression and a set of controls (e.g. <code><a href="slider.html">slider</a></code>, <code><a href="picker.html">picker</a></code>,  <code><a href="checkbox.html">checkbox</a></code>, or <code><a href="button.html">button</a></code>) which are used to dynamically change values within the expression. When a value is changed using its corresponding control the expression is automatically re-executed and the plot is redrawn.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+manipulate(`_expr`, ...)
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>_expr</code></td>
+<td>
+
+<p>Expression to evalulate. The expression should result in the creation of a plot (e.g. <code>plot</code> or <code>qplot</code>). Note that the expression need not be a top-level plotting function, it could also be a custom function that creates a plot as part of its implementation. This expression will be re-evaluated with appropriate parameter substitution each time one of the manipulator control values is changed. 
+</p>
+</td></tr>
+<tr valign="top"><td><code>...</code></td>
+<td>
+
+<p>One or more named control arguments (i.e. <code><a href="slider.html">slider</a></code>, <code><a href="picker.html">picker</a></code>, <code><a href="checkbox.html">checkbox</a></code>, or <code><a href="button.html">button</a></code>), or a list containing named controls. 
+</p>
+</td></tr>
+</table>
+
+
+<h3>Details</h3>
+
+<p>Once a set of manipulator controls are attached to a plot they remain attached and can be recalled whenever viewing the plot (a gear button is added to the top-left of the plot to indicate that it has a manipulator).
+</p>
+<p>The <code>_expr</code> argument is evaluated using <code><a href="../../base/html/withVisible.html">withVisible</a></code>. If it's return value is visible then <code><a href="../../base/html/print.html">print</a></code> is called. This enables manipulate expressions to behave simillarly to their being executed directly at the console. 
+</p>
+<p>The <code>_expr</code> argument uses a syntactially invalid (but backtick quoted) name to avoid clashes with named control arguments.
+</p>
+<p>The <code><a href="state.html">manipulatorSetState</a></code> and <code><a href="state.html">manipulatorGetState</a></code> functions can be used to associate custom state with a manipulator (for example, to track the values used for previous plot executions). These values are stored in a custom environment which is stored along with the rest of the manipulator context.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>RStudio &lt;info@rstudio.com&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre>
+## Not run: 
+
+## Create a plot with a manipulator
+manipulate(plot(1:x), x = slider(5, 10))
+
+## Using more than one slider
+manipulate(
+  plot(cars, xlim=c(x.min,x.max)), 
+  x.min=slider(0,15), 
+  x.max=slider(15,30))
+
+## Filtering data with a picker
+manipulate(
+  barplot(as.matrix(longley[,factor]), 
+          beside = TRUE, main = factor),
+  factor = picker("GNP", "Unemployed", "Employed"))
+
+## Create a picker with labels
+manipulate(
+  plot(pressure, type = type), 
+  type = picker("points" = "p", "line" = "l", "step" = "s"))
+
+## Toggle boxplot outlier display using checkbox
+manipulate(
+  boxplot(Freq ~ Class, data = Titanic, outline = outline),
+  outline = checkbox(FALSE, "Show outliers"))
+
+## Combining controls
+manipulate(
+  plot(cars, xlim = c(x.min, x.max), type = type, 
+       axes = axes, ann = label),
+  x.min = slider(0,15),
+  x.max = slider(15,30, initial = 25),
+  type = picker("p", "l", "b", "c", "o", "h", "s", "S", "n"),
+  axes = checkbox(TRUE, "Draw Axes"),
+  label = checkbox(FALSE, "Draw Labels"))
+
+## End(Not run)
+</pre>
+
+<hr /><div style="text-align: center;">[Package <em>manipulate</em> version 0.98.1103 <a href="00Index.html">Index</a>]</div>
+</body></html>

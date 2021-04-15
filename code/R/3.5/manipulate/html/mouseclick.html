@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Receive notification of mouse clicks on a manipulator plot</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for manipulatorMouseClick {manipulate}"><tr><td>manipulatorMouseClick {manipulate}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Receive notification of mouse clicks on a manipulator plot</h2>
+
+<h3>Description</h3>
+
+<p>This function can be called to determine if a mouse click on the plot was what caused the current invocation of the manipulate expression, and to determine the coordinates which were clicked.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+manipulatorMouseClick()
+</pre>
+
+
+<h3>Details</h3>
+
+<p>If a mouse click did occur, then the function returns a list with the coordinates which the user clicked on.
+</p>
+<p>If a mouse click did not cause the current invocation of the manipulate expression (e.g. if it was caused by the user changing the value of a control) then the function returns NULL.
+</p>
+<p>The mouse click coordinates are provided in device, user, and ndc coordinates. To convert these coordinates into other coordinate systems (e.g. cm or npc) you can use the   <code><a href="../../graphics/html/convertXY.html">grconvertX</a></code> and <code><a href="../../graphics/html/convertXY.html">grconvertY</a></code> functions.  
+</p>
+<p>Note that the userX and userY coordinates are only applicable for base graphics plots (they are not applicable for grid, lattice, ggplot, etc). Therefore, for non-base graphics the userX and userY values will not contain valid coordinates.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list containing the coordinates that user clicked (or NULL if a mouse click didn't occur):
+</p>
+
+<table summary="Rd table">
+<tr>
+ <td style="text-align: left;">
+   <code>deviceX</code> </td><td style="text-align: left;"> Device X coordinate (expressed in pixels)</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+   <code>deviceY</code> </td><td style="text-align: left;"> Device Y coordinate (expressed in pixels)</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+   <code>userX</code> </td><td style="text-align: left;"> User X coordinate (expressed in plot x units). Note that this value is only valid for base graphics.</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+   <code>userY</code> </td><td style="text-align: left;"> User Y coordinate (expressed in plot y units). Note that this value is only valid for base graphics.</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+   <code>ndcX</code> </td><td style="text-align: left;"> NDC X coordinate (0 to 1 from left to right)</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+   <code>ndcY</code> </td><td style="text-align: left;"> NDC Y coordinate (0 to 1 from bottom to top)</td>
+</tr>
+<tr>
+ <td style="text-align: left;">
+</td>
+</tr>
+
+</table>
+
+
+
+<h3>See Also</h3>
+
+<p><code><a href="manipulate.html">manipulate</a></code>, <code><a href="../../graphics/html/convertXY.html">grconvertX</a></code>, <code><a href="../../graphics/html/convertXY.html">grconvertY</a></code>
+</p>
+
+<hr /><div style="text-align: center;">[Package <em>manipulate</em> version 0.98.1103 <a href="00Index.html">Index</a>]</div>
+</body></html>
