@@ -1,5 +1,5 @@
 # ABOUT THIS SCRIT ================================================================================
-# NOTE: These are obsolete and now part of the lsatTS package. 
+# NOTE: These are obsolete and now part of the lsatTS package...
 # This R script contains a set of custom functions for working with site-level Landsat data extracted from Google Earth Engine.
 # The functions handle QAQC, derivation of veg indices, sensor cross-calibration, and estimation of max summer veg indices.
 # Author: Logan Berner, Northern Arizona University
