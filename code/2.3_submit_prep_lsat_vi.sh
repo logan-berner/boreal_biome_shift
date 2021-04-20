@@ -16,4 +16,4 @@ module load anaconda3
 conda activate rstudio_env
 
 # run application
-srun Rscript /home/lb968/code/boreal_biome_shift/2.2_prep_lsat_timeseries.R ${SLURM_ARRAY_TASK_ID} 
+srun Rscript /home/lb968/code/boreal_biome_shift/2.3_prep_lsat_vi_timeseries.R ${SLURM_ARRAY_TASK_ID} 

@@ -14,4 +14,4 @@ date
 module load R
 
 # run application
-srun Rscript /home/lb968/code/boreal_biome_shift/2.4_calc_lsat_ndvi_trend_sites.R ${SLURM_ARRAY_TASK_ID} 
+srun Rscript /home/lb968/code/boreal_biome_shift/2.5_calc_lsat_vi_trends.R ${SLURM_ARRAY_TASK_ID} 
