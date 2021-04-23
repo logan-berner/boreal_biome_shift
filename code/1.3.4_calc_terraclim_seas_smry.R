@@ -4,9 +4,10 @@
 # Date: 2021-01-15
 #---------------------------------------------------------------------------------------------------------------------
 rm(list=ls())
+.libPaths(c(.libPaths(), "~/R/", "/home/lb968/R/4.0.2/"))
 args <- commandArgs(TRUE)
 i = as.numeric(args[1])
-# i=7
+# i=23
 
 require(R.utils)
 require(raster)
@@ -74,7 +75,6 @@ n.periods <- nrow(periods.df)
 print('starting loop...')
 
 for(j in 1:n.periods){
-# for(j in 2:n.periods){
     in.files <- unique(grep(paste(periods.df$start.yr[j]:periods.df$end.yr[j], collapse ='|'), var.seas.files, value = T))
     stk <- stack(in.files)
     
@@ -85,48 +85,48 @@ for(j in 1:n.periods){
     stk.avg.outfile <- paste('seasonal_norms/terraclim_boreal_', var,'_mean_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_', var.meta.df$units, '_laea_4km.tif', sep='')
     writeRaster(stk.avg, stk.avg.outfile, datatype = as.character(var.meta.df$bitdepth), overwrite =T)
 
-    #--------------------------------------------------
-    # climate variability (Coef of variability)
-    stk.sd <- stack_sd(stk)
+    # #--------------------------------------------------
+    # # climate variability (Coef of variability)
+    stk.sd <- stack_sd(stk/100)*100 # divide and then multiply by 100 to avoid 'interget overflow' error from too large of values
     stk.cv <- stk.sd / stk.avg * 100
     stk.cv <- round(stk.cv)
     stk.cv.outfile <- paste('seasonal_cv/terraclim_boreal_', var,'_cv_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_pcnt_laea_4km.tif', sep='')
     writeRaster(stk.cv, stk.cv.outfile, datatype = 'INT1U', overwrite =T)
-    
+
     #--------------------------------------------------
     # climate extremes
     stk.anom <- stk - stk.avg
     stk.z <- stk.anom / stk.sd
     stk.sd.eq0 <- stk.sd == 0 # identify pixels w/ no variability through time (e.g., DEF never above zero in winter)
     stk.z[stk.sd.eq0 == 1] <- 0 # set non-varying pixels to have a z-score of 0
-    
+
     if (var %in% c('pdsi','ppt','soil','swe','tmin')){
       stk.z.extrm <- abs(min(stk.z))
     } else if (var %in% c('def','tmax','vpd')){
       stk.z.extrm <- max(stk.z)
     } else (print('not sure what to do with this variable...'))
-    
+
     stk.anom.outfile <- paste('seasonal_anoms/terraclim_boreal_', var,'_anom_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_maxzscore_laea_4km.tif', sep='')
     writeRaster(stk.z.extrm, stk.anom.outfile, overwrite = T)
     
-    #--------------------------------------------------
-    # climate trend
-    stk.trnd <- stack.trend(stk)
-    
-    ## deal with non-NA pixels that show no variability through time 
-    stk.trnd.na <- is.na(stk.trnd[[1]]) # id pixels in trend map that are NA
-    stk.avg.notna <- is.na(stk.avg) == F # id pixels in var stack that are valid 
-    stk.trnd.missing <- stk.avg.notna == 1 & stk.trnd.na == 1 # id valied pixels that are missing trend data 
-    
-    stk.trnd[[1]][stk.trnd.missing == 1] <- 0 # trend
-    stk.trnd[[2]][stk.trnd.missing == 1] <- 0 # total.change
-    stk.trnd[[3]][stk.trnd.missing == 1] <- 0 # intercept
-    stk.trnd[[4]][stk.trnd.missing == 1] <- 1 # pval
-    stk.trnd[[5]][stk.trnd.missing == 1] <- 0 # tau
-    stk.trnd[[6]][stk.trnd.missing == 1] <- 0 # trend.pcnt
-    
-    stk.trnd.outfile <- paste('seasonal_trends/terraclim_boreal_', var,'_trend_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_', var.meta.df$units, '_laea_4km.tif', sep='')
-    writeRaster(stk.trnd, stk.trnd.outfile, overwrite =T)
+    # #--------------------------------------------------
+    # # climate trend
+    # stk.trnd <- stack.trend(stk)
+    # 
+    # ## deal with non-NA pixels that show no variability through time 
+    # stk.trnd.na <- is.na(stk.trnd[[1]]) # id pixels in trend map that are NA
+    # stk.avg.notna <- is.na(stk.avg) == F # id pixels in var stack that are valid 
+    # stk.trnd.missing <- stk.avg.notna == 1 & stk.trnd.na == 1 # id valied pixels that are missing trend data 
+    # 
+    # stk.trnd[[1]][stk.trnd.missing == 1] <- 0 # trend
+    # stk.trnd[[2]][stk.trnd.missing == 1] <- 0 # total.change
+    # stk.trnd[[3]][stk.trnd.missing == 1] <- 0 # intercept
+    # stk.trnd[[4]][stk.trnd.missing == 1] <- 1 # pval
+    # stk.trnd[[5]][stk.trnd.missing == 1] <- 0 # tau
+    # stk.trnd[[6]][stk.trnd.missing == 1] <- 0 # trend.pcnt
+    # 
+    # stk.trnd.outfile <- paste('seasonal_trends/terraclim_boreal_', var,'_trend_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_', var.meta.df$units, '_laea_4km.tif', sep='')
+    # writeRaster(stk.trnd, stk.trnd.outfile, overwrite =T)
     
     print(paste0('finished: ', j))
 }
@@ -136,3 +136,21 @@ unlink(tmp.dir, recursive = T)
 print('done!')
 
 # END SCRIPT ===============================================================================================
+
+
+# 
+# #--------------------------------------------------
+# # climate anomaly extremes
+# stk.anom <- stk - stk.avg
+# stk.z <- stk.anom / stk.sd
+# stk.sd.eq0 <- stk.sd == 0 # identify pixels w/ no variability through time (e.g., DEF never above zero in winter)
+# stk.z[stk.sd.eq0 == 1] <- 0 # set non-varying pixels to have a z-score of 0
+# 
+# if (var %in% c('pdsi','ppt','soil','swe','tmin')){
+#   stk.anom.extrm <- abs(min(stk.anom))
+# } else if (var %in% c('def','tmax','vpd')){
+#   stk.anom.extrm <- max(stk.anom)
+# } else (print('not sure what to do with this variable...'))
+# 
+# stk.anom.outfile <- paste('seasonal_anoms/terraclim_boreal_', var,'_anom_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_',season, '_', var.meta.df$fun, '_max_laea_4km.tif', sep='')
+# writeRaster(stk.z.extrm, stk.anom.outfile, overwrite = T)

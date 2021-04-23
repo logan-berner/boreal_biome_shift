@@ -1,3 +1,4 @@
+# This R script summarized random forest models used to attribute Landsat VI trends and creates output figure
 rm(list=ls())
 .libPaths(c(.libPaths(), "~/R/", '/home/lb968/R/3.5'))
 require(data.table)
@@ -7,28 +8,28 @@ require(ggpubr)
 require(R.utils)
 require(zoo) # rollapply
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
-source('/home/lb968/code/boreal_biome_shift/0.2_fun_ggplot_stat_boxplot.R')
+source('code/0_fun_ggplot_stat_boxplot.R')
 
 # LOAD DATA SETS ====================================================================================
-accur.dt <- do.call("rbind", lapply(list.files('output/lsat_ndvi_trend_rf/accuracy_mcreps/', full.names = T), fread))
-conf.mtx.dt <- do.call("rbind", lapply(list.files('output/lsat_ndvi_trend_rf/conf_mtx_mcreps/', full.names = T), fread))
-var.imp.dt <- do.call("rbind", lapply(list.files('output/lsat_ndvi_trend_rf/var_imp_mcreps/', full.names = T), fread))
-pd.dt <- do.call("rbind", lapply(list.files('output/lsat_ndvi_trend_rf/partial_depend_mcreps/', full.names = T), fread))
+accur.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends_attribute/accuracy_mcreps/', full.names = T), fread))
+conf.mtx.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends_attribute/conf_mtx_mcreps/', full.names = T), fread))
+var.imp.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends_attribute/var_imp_mcreps/', full.names = T), fread))
+pd.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends_attribute/partial_depend_mcreps/', full.names = T), fread))
 
-# adust a few variable names
-var.imp.dt[var == 'elev', var := 'elev.m']
-var.imp.dt[var == 'gst.2003.degC', var := 'gt.2003.degC']
-var.imp.dt[var == 'gst.change.degC', var := 'gt.change.degC']
-var.imp.dt[var == 'soil.jja.min.change.mm', var := 'sm.change.mm']
-var.imp.dt[var == 'soil.jja.min.2000.mm', var := 'sm.2000.mm']
-var.imp.dt$var <- toupper(var.imp.dt$var)
-
-pd.dt[var == 'elev', var := 'elev.m']
-pd.dt[var == 'gst.2003.degC', var := 'gt.2003.degC']
-pd.dt[var == 'gst.change.degC', var := 'gt.change.degC']
-pd.dt[var == 'soil.jja.min.change.mm', var := 'sm.change.mm']
-pd.dt[var == 'soil.jja.min.2000.mm', var := 'sm.2000.mm']
-pd.dt$var <- toupper(pd.dt$var)
+# # adust a few variable names
+# var.imp.dt[var == 'elev', var := 'elev.m']
+# var.imp.dt[var == 'gst.2003.degC', var := 'gt.2003.degC']
+# var.imp.dt[var == 'gst.change.degC', var := 'gt.change.degC']
+# var.imp.dt[var == 'soil.jja.min.change.mm', var := 'sm.change.mm']
+# var.imp.dt[var == 'soil.jja.min.2000.mm', var := 'sm.2000.mm']
+# var.imp.dt$var <- toupper(var.imp.dt$var)
+# 
+# pd.dt[var == 'elev', var := 'elev.m']
+# pd.dt[var == 'gst.2003.degC', var := 'gt.2003.degC']
+# pd.dt[var == 'gst.change.degC', var := 'gt.change.degC']
+# pd.dt[var == 'soil.jja.min.change.mm', var := 'sm.change.mm']
+# pd.dt[var == 'soil.jja.min.2000.mm', var := 'sm.2000.mm']
+# pd.dt$var <- toupper(pd.dt$var)
 pd.dt[class == 'none', class := 'no trend']
 
 conf.mtx.dt[Prediction == 'none', Prediction := 'no trend']
@@ -47,14 +48,14 @@ accur.smry.dt <- data.table(matrix(paste0(accur.med.mtx, ' [', accur.q025.mtx, '
 colnames(accur.smry.dt) <- capitalize(colnames(accur.med.mtx))
 accur.smry.dt$Class <- c('browning','none','greening')
 accur.smry.dt
-fwrite(accur.smry.dt, 'output/lsat_ndvi_trend_rf/lsat_ndvi_trend_rf_classification_accuracy_summary.csv')
+fwrite(accur.smry.dt, 'output/lsat_vi_gs_site_trends_attribute/lsat_vi_gs_site_trend_rf_classification_accuracy_summary.csv')
 
 # variable importance
-var.imp.smry.dt <- var.imp.dt[, .(vi=median(MeanDecreaseAccuracy), vi.q025=quantile(MeanDecreaseAccuracy,0.025), vi.q975=quantile(MeanDecreaseAccuracy,0.975)), by = c('var')]
-var.imp.smry.dt <- var.imp.smry.dt[order(-vi)]
+var.imp.smry.dt <- var.imp.dt[, .(imp=median(MeanDecreaseAccuracy), imp.q025=quantile(MeanDecreaseAccuracy,0.025), imp.q975=quantile(MeanDecreaseAccuracy,0.975)), by = c('var')]
+var.imp.smry.dt <- var.imp.smry.dt[order(-imp)]
 top.vars <- var.imp.smry.dt[1:6]
 var.imp.smry.dt
-fwrite(var.imp.smry.dt, 'output/lsat_ndvi_trend_rf/lsat_ndvi_trend_rf_variable_importance_summary.csv')
+fwrite(var.imp.smry.dt, 'output/lsat_vi_gs_site_trends_attribute/lsat_vi_gs_site_trend_rf_variable_importance_summary.csv')
 
 # confusion matrix
 conf.mtx.dt[, Prediction := factor(Prediction, levels = c('browning','no trend','greening'))]
@@ -64,14 +65,15 @@ conf.mtx.smry.fncy.dt <- conf.mtx.smry.dt[,1:2]
 conf.mtx.smry.fncy.dt$N <- paste0(conf.mtx.smry.dt$N, ' [', conf.mtx.smry.dt$N.q025, ', ', conf.mtx.smry.dt$N.q975, ']')
 conf.mtx.smry.fncy.dt <- dcast(conf.mtx.smry.fncy.dt, Reference ~ Prediction, value.var = 'N')
 conf.mtx.smry.fncy.dt
-fwrite(conf.mtx.smry.fncy.dt, 'output/lsat_ndvi_trend_rf/lsat_ndvi_trend_rf_confusion_matrix_summary.csv')
+fwrite(conf.mtx.smry.fncy.dt, 'output/lsat_vi_gs_site_trends_attribute/lsat_vi_gs_site_trend_rf_confusion_matrix_summary.csv')
 
 # partial dependency
 vars <- unique(pd.dt$var)
-var.fac <- vars[c(1:6)]
-var.num <- vars[(vars %in% var.fac) == F]
-pd.num.dt <- pd.dt[var %in% var.num]
-pd.num.dt <- pd.num.dt[, x.value := as.numeric(x.value)]
+# var.fac <- vars[c(1:6)]
+# var.num <- vars[(vars %in% var.fac) == F]
+# pd.num.dt <- pd.dt[var %in% var.num]
+# pd.num.dt <- pd.num.dt[, x.value := as.numeric(x.value)]
+pd.num.dt <- pd.dt[, x.value := as.numeric(x.value)]
 
 pd.num.interp.list <- list()
 cnt = 1
@@ -104,19 +106,19 @@ pd.num.smry.dt <- pd.num.dt[, .(prob=median(prob, na.rm=T), prob.q025=quantile(p
 
 # CREATE FIGURES ====================================================================================
 
-varimp.labs <- c('SWI.CHANGE.DEGC' = expression(Delta~'Summer Warmth Index ('*degree*'C)'),
-                 'GT.2003.DEGC' = expression('Annual Soil Temperature ('*degree*'C)'),
-                 'SWI.2000.DEGC' = expression('Summer Warmth Index ('*degree*'C)'),
-                 'ELEV.M' = 'Elevation (m)',
-                 'SM.CHANGE.MM' = expression(Delta~'Summer Soil Moisture (mm)'),
-                 'GT.CHANGE.DEGC' = expression(Delta~'Annual Soil Temperature ('*degree*'C)'))
-
-pd.labs <- c(paste0("Delta~", "Summer~Warmth~Index~(", "degree*", "C)"),
-             paste0("Annual~Soil~Temperature~(", "degree*", "C)"),
-             paste0("Summer~Warmth~Index~(", "degree*", "C)"),
-             paste0('Elevation~(m)'), 
-             paste0("Delta~", "Summer~Soil~Moisture~(mm)"),
-             paste0("Delta~", "Annual~Soil~Temperature~(", "degree*", "C)"))
+# varimp.labs <- c('SWI.CHANGE.DEGC' = expression(Delta~'Summer Warmth Index ('*degree*'C)'),
+#                  'GT.2003.DEGC' = expression('Annual Soil Temperature ('*degree*'C)'),
+#                  'SWI.2000.DEGC' = expression('Summer Warmth Index ('*degree*'C)'),
+#                  'ELEV.M' = 'Elevation (m)',
+#                  'SM.CHANGE.MM' = expression(Delta~'Summer Soil Moisture (mm)'),
+#                  'GT.CHANGE.DEGC' = expression(Delta~'Annual Soil Temperature ('*degree*'C)'))
+# 
+# pd.labs <- c(paste0("Delta~", "Summer~Warmth~Index~(", "degree*", "C)"),
+#              paste0("Annual~Soil~Temperature~(", "degree*", "C)"),
+#              paste0("Summer~Warmth~Index~(", "degree*", "C)"),
+#              paste0('Elevation~(m)'), 
+#              paste0("Delta~", "Summer~Soil~Moisture~(mm)"),
+#              paste0("Delta~", "Annual~Soil~Temperature~(", "degree*", "C)"))
 
 trend.cols <- c('lightsalmon4','gray50','springgreen4')
 
@@ -134,8 +136,8 @@ var.imp.fig <- var.imp.fig + xlab('Predictor variable') + ylab('Mean decrease in
 var.imp.fig <- var.imp.fig + scale_x_discrete(labels = varimp.labs)
 var.imp.fig <- var.imp.fig + theme_bw() + theme(axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 11),
                                                 axis.title = element_text(size = 14))
-
-jpeg('figures/Landsat_NDVI_trend_classification_varimp.jpg', 6, 5, res = 400, units = 'in')
+var.imp.fig
+jpeg('figures/Landsat_VI_trend_classification_varimp.jpg', 6, 5, res = 400, units = 'in')
 var.imp.fig
 dev.off()
 
@@ -152,11 +154,12 @@ pd.fig <- pd.fig + geom_ribbon(aes(x=x.value, ymin=prob.q025, ymax=prob.q975, fi
 pd.fig <- pd.fig + scale_fill_manual(values = trend.cols) + scale_color_manual(values = trend.cols)
 pd.fig <- pd.fig + facet_wrap(var ~ ., scales = 'free', labeller = label_parsed)
 pd.fig <- pd.fig + xlab('Value of predictor variable') + ylab('Classification probability') 
-pd.fig <- pd.fig + labs(color=expression('NDVI'[max]~'trend class: '), fill = expression('NDVI'[max]~'trend class: '))
+pd.fig <- pd.fig + labs(color='vegetation greenness trend class: ', fill = 'vegetation greenness trend class: ')
 pd.fig <- pd.fig + theme_bw() + theme(legend.position = 'top', legend.text=element_text(size=14), legend.title=element_text(size=14),
                                       strip.text = element_text(size = 9), axis.text = element_text(size = 12), axis.title = element_text(size = 14))
+pd.fig
 
-jpeg('figures/Landsat_NDVI_trend_classification_partial_depend.jpg', 10, 8, res = 400, units = 'in')
+jpeg('figures/Landsat_VI_trend_classification_partial_depend.jpg', 10, 8, res = 400, units = 'in')
 pd.fig
 dev.off()
 
@@ -164,7 +167,7 @@ dev.off()
 # combined var importance and partial dependency
 combo.fig <- ggarrange(var.imp.fig, pd.fig, labels = c("(a)", "(b)"), label.x = -0.01, label.y = 1.04, ncol = 1, nrow = 2, heights=c(1,2))
 
-pdf('figures/Landsat_NDVI_trend_classification_varImp_parDepend.pdf',7, 7)
+pdf('figures/Landsat_VI_trend_classification_varImp_parDepend.pdf',7, 7)
 # jpeg('figures/Landsat_NDVI_trend_classification_varImp_parDepend.jpg', 11, 4, res = 500, units = 'in')
 combo.fig
 dev.off()

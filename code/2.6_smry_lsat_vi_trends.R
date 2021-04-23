@@ -1,7 +1,7 @@
 # ABOUT THIS SCRIPT  ==============================================================================================================
-# This R script summarizes Landsat cross-sensor calibration random forest models
+# This R script summarizes boreal forest vegetation greenness trends across Monte Carlo simulations
 # AUTHOR: LOGAN BERNER, NAU
-# DATE: 2020-02-25
+# DATE: 2021-04-21
 
 # SET UP WORKSPACE ==============================================================================================================
 rm(list=ls())
@@ -13,10 +13,14 @@ require(dplyr)
 
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
-# READ IN FILES
-site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_site_trends/mc_reps/', full.names = T), fread))
+# READ IN FILES ================================================================================================================
+# tabular data
+site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
+
 zonal.avg.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_zonal_avg_trends/mc_reps/', full.names = T), fread))
 zonal.freq.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_zonal_freq_trends/mc_reps/', full.names = T), fread))
+
+# rasters
 grn.gte1985.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'greening_p10_1985to2016', full.names = T)
 grn.gte2000.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'greening_p10_2000to2016', full.names = T)
 brn.gte1985.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'browning_p10_1985to2016', full.names = T)
@@ -26,11 +30,11 @@ site.cnt.gte2000.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/
 
 # SITE TRENDS NDVI -------------------------------------------------------------------
 site.trnds.smry.dt <- site.trnds.dt[, .(int=median(int, na.rm = T), int.q025=quantile(int,0.025, na.rm = T), int.q975=quantile(int,0.975, na.rm = T),
-                                        ndvi.change=median(total.change, na.rm = T), ndvi.change.q025=quantile(total.change,0.025, na.rm = T), ndvi.change.q975=quantile(total.change,0.975, na.rm = T),
-                                        ndvi.change.pcnt=median(total.change.pcnt, na.rm = T), ndvi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), ndvi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
+                                        vi.change=median(total.change, na.rm = T), vi.change.q025=quantile(total.change,0.025, na.rm = T), vi.change.q975=quantile(total.change,0.975, na.rm = T),
+                                        vi.change.pcnt=median(total.change.pcnt, na.rm = T), vi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), vi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
                                     by = c('site','period')]
 
-fwrite(site.trnds.smry.dt, 'output/lsat_site_trends/lsat_ndvi_site_trend_summary.csv')
+fwrite(site.trnds.smry.dt, 'output/lsat_vi_gs_site_trends/boreal_lsat_vi_site_trend_summary.csv')
 
 
 # TRENDS IN ZONAL AVERAGE NDVI -------------------------------------------------------------------

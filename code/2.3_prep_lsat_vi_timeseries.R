@@ -11,8 +11,8 @@ require(lsatTS)
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 args <- commandArgs(TRUE)
-# i = as.numeric(args[1])
-i=1
+i = as.numeric(args[1])
+# i=1
 
 # reformat i for sorting
 if (i < 10){
@@ -56,7 +56,7 @@ lsat.dt[satellite == 'LC08', red := red + red * LC08.red.scalers]
 # COMPUTE VEGETATION INDEX AND CROSS-CALIBRATE IT AMONG LANDSAT SENSORS ====================
 print('Calculating and cross calibrating vegetation indices...')
 
-vi.all <- c('ndvi','evi2','wdrvi','nirv','kndvi')
+vi.all <- c('ndvi','evi2','nirv','kndvi')
 vi.rep <- sample(vi.all, 1)
 
 lsat.dt <- lsat_calc_spec_index(lsat.dt, vi.rep)
@@ -76,7 +76,7 @@ win.min.obs.rep <- sample(10:15, 1)
 lsat.pheno.dt <- lsat_fit_phenological_curves(lsat.dt, vi.rep, window.yrs = win.yrs.rep, window.min.obs = win.min.obs.rep, spar = spar.rep, spl.fit.outfile = F)
 
 # compute annual max VI
-min.frac.of.max.rep <- runif(1, 0.6, 0.8)
+min.frac.of.max.rep <- runif(1, 0.65, 0.75)
 lsat.gs.dt <- lsat_summarize_growing_seasons(lsat.pheno.dt, vi = vi.rep, min.frac.of.max = min.frac.of.max.rep)
 
 # rename columns to 'vi' 

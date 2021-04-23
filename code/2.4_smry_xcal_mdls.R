@@ -1,7 +1,7 @@
 # ABOUT THIS SCRIPT  ==============================================================================================================
 # This R script summarizes Landsat cross-sensor calibration random forest models
 # AUTHOR: LOGAN BERNER, NAU
-# DATE: 2020-02-25
+# DATE: 2021-04-21
 
 # SET UP WORKSPACE ==============================================================================================================
 rm(list=ls())
@@ -11,11 +11,11 @@ require(ggplot2)
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 # READ IN FILES
-files <- list.files('output/xcal_ndvi/', full.names = T)
+files <- list.files('output/xcal/', full.names = T)
 files <- files[grep('eval.csv', files)]
 
 xcal.dt <- do.call("rbind", lapply(files, fread))
-xcal.dt$rep <- sort(rep(1:1000, 2))
+xcal.dt$rep <- sort(rep(1:10, 2))
 
 # SUMMARIZE EVALUATION COEFFICIENTS ACROSS MONTE CARLO ITERATIONS
 xcal.smry.dt <- xcal.dt[, .(rf.r2=paste0(round(median(rf.r2),3), ' [', round(quantile(rf.r2,0.025),3),',',round(quantile(rf.r2,0.975),3),']'),
@@ -25,9 +25,9 @@ xcal.smry.dt <- xcal.dt[, .(rf.r2=paste0(round(median(rf.r2),3), ' [', round(qua
                             xval.rmse=paste0(round(median(xval.rmse),3), ' [', round(quantile(xval.rmse,0.025),3),',',round(quantile(xval.rmse,0.975),3),']'),
                             xval.bias=paste0(round(median(xval.bias),3), ' [', round(quantile(xval.bias,0.025),3),',',round(quantile(xval.bias,0.975),3),']'),
                             xval.n=paste0(round(median(xval.n)), ' [', round(quantile(xval.n,0.025)),',',round(quantile(xval.n,0.975)),']')),
-                        by = 'sat']
+                        by = c('band','sat')]
 
 xcal.smry.dt
 
 # WRITE OUT SUMMARY TABLE
-fwrite(xcal.smry.dt, 'output/lsat_ndvi_xcal_smry.csv')
+fwrite(xcal.smry.dt, 'output/lsat_vi_xcal_smry.csv')

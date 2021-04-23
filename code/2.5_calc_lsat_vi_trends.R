@@ -8,13 +8,7 @@ rm(list=ls())
 .libPaths(c(.libPaths(), "~/R/", "/home/lb968/R/4.0.2/"))
 require(data.table)
 require(lsatTS)
-# library(dplyr)
-# require(tidyr)
-# library(reshape2)
-# library(maptools)
 library(raster)
-# library(rgdal)
-# library(sp)
 library(R.utils)
 
 args <- commandArgs(TRUE)
@@ -27,9 +21,11 @@ setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 # READ IN LANDSAT VI TIME SERIES  ==============================================================================================================
 print('Loading data...')  
 
-# site.dt <- fread('output/boreal_sample_site_climate_and_landcover.csv')
+site.dt <- fread('output/boreal_sample_site_climate_and_landcover.csv')
 lsat.vi.dt <- fread(list.files('output/lsat_vi_gs_site_timeseries/', full.names = T)[i])
-          
+
+# lsat.vi.dt <- lsat.vi.dt[sample(1:nrow(lsat.vi.dt), nrow(lsat.vi.dt)*0.25)]
+
 boreal.r <- raster('data/gis_data/wwf_boreal_biome_laea_300m.tif')
 ecounit.r <- raster('data/gis_data/ecological_land_unit_boreal_aoi_300m_laea.tif')     
 
@@ -50,94 +46,116 @@ lsat.vi.site.trnd.1985.dt <- lsat_calc_trend(lsat.vi.dt, vi = 'vi.max', yrs = 19
 lsat.vi.site.trnd.2000.dt <- lsat_calc_trend(lsat.vi.dt, vi = 'vi.max', yrs = 2000:2019, yr.tolerance = 1, nyr.min.frac = 0.666, sig = 0.10)
 lsat.vi.site.trnd.dt <- rbind(lsat.vi.site.trnd.1985.dt, lsat.vi.site.trnd.2000.dt)
 
-# add spatial details to trends
-lsat.vi.site.trnd.dt <- site.dt[lsat.vi.site.trnd.dt, on = 'site']
-lsat.vi.site.trnd.dt[, ecounit := round(runif(nrow(lsat.vi.site.trnd.dt), 1,20))] # FOR TESTING DELETE ME !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# specify which vi was used
+lsat.vi.site.trnd.dt[, vi.name := unique(lsat.vi.dt$vi.name)]
 
 # write out trend for each site during each period
 mkdirs('output/lsat_vi_gs_site_trends/mc_reps')
 lsat.vi.site.trnd.dt$rep <- i
-fwrite(vi.trnd.site, paste0('output/lsat_vi_gs_site_trends/mc_reps/boreal_lsat_vi_gs_site_trends_rep_',i,'.csv'))
+fwrite(lsat.vi.site.trnd.dt, paste0('output/lsat_vi_gs_site_trends/mc_reps/boreal_lsat_vi_gs_site_trends_rep_',i,'.csv'))
 
 
 # COMPUTE % OF SAMPLING SITES IN EACH ECOUNIT THAT GREENED AND BROWNED ==============================================================
 print('Computing ecounit fractional trends...')  
-mkdirs('output/lsat_vi_gs_ecounit_trends/mc_reps_tabular')
-mkdirs('output/lsat_vi_gs_ecounit_trends/mc_reps_gridded')
+mkdirs('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_tabular')
 
-lsat.vi.site.trnd.dt$rep <- i
-fwrite(vi.trnd.site, paste0('output/lsat_vi_gs_site_trends/mc_reps/boreal_lsat_vi_gs_site_trends_rep_',i,'.csv'))
+# add ecounit to trends
+lsat.vi.site.trnd.dt$ecounit <- site.dt$ecounit[match(lsat.vi.site.trnd.dt$site, site.dt$site)]
+rm(site.dt)
 
-
+# compute fractions ---------------------------------
 lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.site.trnd.dt[ , .(n.sites = .N), by=c('trend.period','ecounit','trend.cat')]
 lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[, n.sites.ecounit := sum(n.sites), by=c('trend.period','ecounit')]
 lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[, pcnt.sites := round(n.sites / n.sites.ecounit * 100)]
-lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[, trend.cat := factor(trend.cat, levels = c('browning','no trend','greening'))]
-                                                                                              
-
+lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[, trend.cat := factor(trend.cat, levels = c('browning','no_trend','greening'))]
 lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[order(ecounit, trend.cat)]
 lsat.vi.ecounit.frac.trnd.dt <- lsat.vi.ecounit.frac.trnd.dt[n.sites.ecounit >= 10]
 setorder(lsat.vi.ecounit.frac.trnd.dt, trend.period, ecounit, trend.cat)
-         
-lsat.vi.ecounit.frac.trnd.wide.dt <- dcast.data.table(data = lsat.vi.ecounit.frac.trnd.dt, formula = ecounit ~ trend.cat + trend.period, value.var = 'pcnt.sites')
 
-lsat.vi.ecounit.frac.trnd.wide.dt[is.na(lsat.vi.ecounit.frac.trnd.wide.dt)] <- 0
- 
+# spatialize trend fractions ------------------------
+mkdirs('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded')
 
-# SPATIALIZE TRENDS =======================================================================================
-# boreal.r[boreal.r == 0] <- 1
 boreal.r[] <- NA
 boreal.pxl.dt <- data.table(cellid = 1:ncell(boreal.r), ecounit = values(ecounit.r))
 boreal.pxl.dt <- na.omit(boreal.pxl.dt)
 
+trend.periods <- c('1985to2019','2000to2019')
+# j = trend.periods[1]
 
-# ECOUNIT PERCENTAGE GREENING / BROWNING  -----------------------------------------------------------
-mkdirs('output/lsat_vi_gs_ecounit_trends_frac/')
-ecounit.pcnt.dt <- boreal.pxl.dt[vi.trnd.site.cat.pcnt.by.ecounit.wide, on = 'ecounit']
+for (j in trend.periods){
+  
+  # n sites per ecounit ---------
+  print(paste0('starting to grid nsites ', j))
+  lsat.vi.ecounit.nsites.dt <- dcast.data.table(data = lsat.vi.ecounit.frac.trnd.dt[trend.period == j], formula = ecounit ~ trend.period, value.var = 'n.sites.ecounit', fun.aggregate = mean)
+  setnames(lsat.vi.ecounit.nsites.dt, j, 'n.sites')
+  lsat.vi.ecounit.nsites.dt[is.na(lsat.vi.ecounit.nsites.dt)] <- 0
+  
+  ecounit.nsites.dt <- boreal.pxl.dt[lsat.vi.ecounit.nsites.dt, on = 'ecounit']
+  ecounit.nsites.dt <- na.omit(ecounit.nsites.dt)
+  
+  nsites.r <- boreal.r
+  nsites.r[ecounit.nsites.dt$cellid] <- ecounit.nsites.dt$n.sites
+  writeRaster(nsites.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_nsites_',j,'_300m_laea_rep_',i,'.tif'), datatype = 'INT2U', overwrite=T)
+  rm(list=c('nsites.r','ecounit.nsites.dt', 'lsat.vi.ecounit.nsites.dt'))
 
+    
+  # percent of sites that greenned and browned per ecounit ------------
+  
+  # cast wide and join grid cell data table
+  lsat.vi.ecounit.frac.trnd.wide.dt <- dcast.data.table(data = lsat.vi.ecounit.frac.trnd.dt[trend.period == j], formula = ecounit ~ trend.cat, value.var = 'pcnt.sites')
+  lsat.vi.ecounit.frac.trnd.wide.dt[is.na(lsat.vi.ecounit.frac.trnd.wide.dt)] <- 0
+  
+  ecounit.pcnt.dt <- boreal.pxl.dt[lsat.vi.ecounit.frac.trnd.wide.dt, on = 'ecounit']
+  ecounit.pcnt.dt <- na.omit(ecounit.pcnt.dt)
+  rm(lsat.vi.ecounit.frac.trnd.wide.dt)
+  
+  ### % sites greening
+  print(paste0('starting to grid greening sites ', j))
+  greening.pcnt.r <- boreal.r
+  greening.pcnt.r[ecounit.pcnt.dt$cellid] <- ecounit.pcnt.dt$greening
+  writeRaster(greening.pcnt.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_pcnt_greening_',j,'_300m_laea_rep_',i,'.tif'), datatype = 'INT1U', overwrite=T)
+  rm(greening.pcnt.r)
+  
+  ### % sites browning
+  print(paste0('starting to grid browning sites ', j))
+  browning.pcnt.r <- boreal.r
+  browning.pcnt.r[ecounit.pcnt.dt$cellid] <- ecounit.pcnt.dt$browning
+  writeRaster(browning.pcnt.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_pcnt_browning_',j,'_300m_laea_rep_',i,'.tif'), datatype = 'INT1U', overwrite=T)
+  rm(list=c('browning.pcnt.r','ecounit.pcnt.dt'))
+  
+  print(paste0('finished gridding ', j))
+}
 
-# % sites greening
-greening.pcnt.r <- boreal.r
-greening.pcnt.r[ecounit.pcnt.dt$cellid] <- round(ecounit.pcnt.dt$greening)
-writeRaster(greening.pcnt.r, 'output/data/gis_data/boreal_lsat_vi_ecounit_pcnt_greening_2000to2020.tif', datatype = 'INT1U', overwrite=T)
-rm(greening.pcnt.r)
-
-# % sites browning 
-browning.pcnt.r <- boreal.r
-browning.pcnt.r[ecounit.pcnt.dt$cellid] <- round(ecounit.pcnt.dt$browning)
-writeRaster(browning.pcnt.r, 'data/gis_data/boreal_lsat_vi_ecounit_pcnt_browning_2000to2020.tif', datatype = 'INT1U', overwrite=T)
-rm(browning.pcnt.r)
-
-
-
-# ECOUNIT AVERAGE CHANGE -----------------------------------------------------------
-boreal.trends.2000.dt <- boreal.pxl.dt[lsat.vi.ecounit.trends, on = 'ecounit']
-boreal.trends.2000.dt <- na.omit(boreal.trends.2000.dt)
-rm(boreal.pxl.dt)
-
-# pval
-pval.2000.slp.r <- boreal.r
-pval.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$pval*1000)
-writeRaster(pval.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_pval_x1000_2000to2020.tif', datatype = 'INT2U', overwrite=T)
-rm(pval.2000.slp.r)
-
-# slope
-trends.2000.slp.r <- boreal.r
-trends.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$slope*10000)
-writeRaster(trends.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_slope_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
-rm(trends.2000.slp.r)
-
-# vi change
-trends.2000.chng.r <- boreal.r
-trends.2000.chng.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi*10000)
-writeRaster(trends.2000.chng.r, 'data/gis_data/boreal_lsat_vi_ecounit_total_change_vi_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
-rm(trends.2000.chng.r)
-
-# vi change as pcnt
-trends.2000.chng.pcnt.r <- boreal.r
-trends.2000.chng.pcnt.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi.pcnt*100)
-writeRaster(trends.2000.chng.pcnt.r, 'data/gis_data/boreal_lsat_vi_ecounit_pcnt_change_vi_x100_2000to2020.tif', datatype = 'INT2S', overwrite=T)
-rm(trends.2000.chng.pcnt.r)
+# 
+# 
+# # ECOUNIT AVERAGE CHANGE -----------------------------------------------------------
+# boreal.trends.2000.dt <- boreal.pxl.dt[lsat.vi.ecounit.trends, on = 'ecounit']
+# boreal.trends.2000.dt <- na.omit(boreal.trends.2000.dt)
+# rm(boreal.pxl.dt)
+# 
+# # pval
+# pval.2000.slp.r <- boreal.r
+# pval.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$pval*1000)
+# writeRaster(pval.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_pval_x1000_2000to2020.tif', datatype = 'INT2U', overwrite=T)
+# rm(pval.2000.slp.r)
+# 
+# # slope
+# trends.2000.slp.r <- boreal.r
+# trends.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$slope*10000)
+# writeRaster(trends.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_slope_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.slp.r)
+# 
+# # vi change
+# trends.2000.chng.r <- boreal.r
+# trends.2000.chng.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi*10000)
+# writeRaster(trends.2000.chng.r, 'data/gis_data/boreal_lsat_vi_ecounit_total_change_vi_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.chng.r)
+# 
+# # vi change as pcnt
+# trends.2000.chng.pcnt.r <- boreal.r
+# trends.2000.chng.pcnt.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi.pcnt*100)
+# writeRaster(trends.2000.chng.pcnt.r, 'data/gis_data/boreal_lsat_vi_ecounit_pcnt_change_vi_x100_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.chng.pcnt.r)
 
 
 # END SCRIPT ==================================================================================================
@@ -267,4 +285,76 @@ rm(trends.2000.chng.pcnt.r)
 # 
 # print('finished gridded trends... All done!!')  
 
-# COMPUTE TRENDS IN BIOME-WIDE AND SUBZONE-WIDE MEAN LANDSAT vi ====================================================================
+
+
+# lsat.vi.ecounit.frac.trnd.wide.dt <- dcast.data.table(data = lsat.vi.ecounit.frac.trnd.dt, formula = ecounit ~ trend.cat + trend.period, value.var = 'pcnt.sites')
+# lsat.vi.ecounit.frac.trnd.wide.dt[is.na(lsat.vi.ecounit.frac.trnd.wide.dt)] <- 0
+# 
+# lsat.vi.ecounit.nsites.dt <- dcast.data.table(data = lsat.vi.ecounit.frac.trnd.dt, formula = ecounit ~ trend.period, value.var = 'n.sites.ecounit', fun.aggregate = mean)
+# lsat.vi.ecounit.nsites.dt[is.na(lsat.vi.ecounit.nsites.dt)] <- 0
+# 
+# # spatialize trend fractions -------------------------------------------------
+# mkdirs('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded')
+# 
+# boreal.r[] <- NA
+# boreal.pxl.dt <- data.table(cellid = 1:ncell(boreal.r), ecounit = values(ecounit.r))
+# boreal.pxl.dt <- na.omit(boreal.pxl.dt)
+# 
+# ecounit.pcnt.dt <- boreal.pxl.dt[lsat.vi.ecounit.frac.trnd.wide.dt, on = 'ecounit']
+# ecounit.pcnt.dt <- na.omit(ecounit.pcnt.dt)
+# 
+# 
+# ## 1985 - 2019 ----------------
+# 
+# ### n sites
+# ecounit.nsites.dt <- boreal.pxl.dt[lsat.vi.ecounit.nsites.dt, on = 'ecounit']
+# ecounit.nsites.dt <- na.omit(ecounit.nsites.dt)
+# 
+# nsites.1985.r <- boreal.r
+# nsites.1985.r[ecounit.pcnt.dt$cellid] <- ecounit.nsites.dt$'1985to2019'
+# writeRaster(nsites.1985.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_nsites_1985to2019_300m_laea_rep_',i,'.tif'), datatype = 'INT1U', overwrite=T)
+# rm(nsites.1985.r)
+# 
+# ### % sites greening
+# greening.pcnt.1985.r <- boreal.r
+# greening.pcnt.1985.r[ecounit.pcnt.dt$cellid] <- ecounit.pcnt.dt$greening_1985to2019
+# writeRaster(greening.pcnt.1985.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_pcnt_greening_1985to2019_300m_laea_rep_',i,'.tif'), datatype = 'INT1U', overwrite=T)
+# rm(greening.pcnt.1985.r)
+# 
+# ### % sites browning
+# browning.pcnt.1985.r <- boreal.r
+# browning.pcnt.1985.r[ecounit.pcnt.dt$cellid] <- ecounit.pcnt.dt$browning_1985to2019
+# writeRaster(browning.pcnt.1985.r, paste0('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_gridded/boreal_lsat_vi_gs_ecounit_pcnt_browning_1985to2019_300m_laea_rep_',i,'.tif'), datatype = 'INT1U', overwrite=T)
+# rm(browning.pcnt.1985.r)
+# 
+# 
+# 
+# # ECOUNIT AVERAGE CHANGE -----------------------------------------------------------
+# boreal.trends.2000.dt <- boreal.pxl.dt[lsat.vi.ecounit.trends, on = 'ecounit']
+# boreal.trends.2000.dt <- na.omit(boreal.trends.2000.dt)
+# rm(boreal.pxl.dt)
+# 
+# # pval
+# pval.2000.slp.r <- boreal.r
+# pval.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$pval*1000)
+# writeRaster(pval.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_pval_x1000_2000to2020.tif', datatype = 'INT2U', overwrite=T)
+# rm(pval.2000.slp.r)
+# 
+# # slope
+# trends.2000.slp.r <- boreal.r
+# trends.2000.slp.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$slope*10000)
+# writeRaster(trends.2000.slp.r, 'data/gis_data/boreal_lsat_vi_ecounit_trend_slope_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.slp.r)
+# 
+# # vi change
+# trends.2000.chng.r <- boreal.r
+# trends.2000.chng.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi*10000)
+# writeRaster(trends.2000.chng.r, 'data/gis_data/boreal_lsat_vi_ecounit_total_change_vi_x10000_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.chng.r)
+# 
+# # vi change as pcnt
+# trends.2000.chng.pcnt.r <- boreal.r
+# trends.2000.chng.pcnt.r[boreal.trends.2000.dt$cellid] <- round(boreal.trends.2000.dt$delta.vi.pcnt*100)
+# writeRaster(trends.2000.chng.pcnt.r, 'data/gis_data/boreal_lsat_vi_ecounit_pcnt_change_vi_x100_2000to2020.tif', datatype = 'INT2S', overwrite=T)
+# rm(trends.2000.chng.pcnt.r)
+# 

@@ -19,10 +19,14 @@ lsat.ts.dt <- fread('data/lsat_samples/boreal_lsat_clean_data_100k_sites_1985to2
 domain.shp <- readOGR(dsn = 'data/gis_data/wwf_boreal_biome_laea.shp')
 ecoreg.shp <- readOGR(dsn = 'data/gis_data/wwf_boreal_ecoregs_laea.shp')
 
-## load rasters
+## load land cover rasters
 lc.r <- raster('data/gis_data/landcov/esa_cci_landcov_consol_classes_2018_300m_laea.tif')
 ecounit.r <- raster('data/gis_data/ecological_land_unit_boreal_300m_laea.tif')
 treecov.r <- raster('data/gis_data/landcov/modis_treecov_median_2017to2019_boreal_laea_300m.tif')
+
+## load permafrost rasters
+pf.prob.r <- raster('data/gis_data/permafrost/esa_globpermafrost_pf_prob_avg_2000to2016_boreal_1km_laea.tif')
+pf.magt.r <- raster('data/gis_data/permafrost/esa_globpermafrost_pf_magt_avg_degCx10_2000to2016_boreal_1km_laea.tif')
 
 ## load topo rasters
 elev.r <- raster('data/gis_data/topo/gmted2010_boreal_elevation_m_300m_laea.tif')
@@ -85,6 +89,10 @@ site.dt$ecounit <- raster::extract(ecounit.r, pts.laea)
 ## modis tree cover 
 site.dt$treecov <- raster::extract(treecov.r, pts.laea)
 
+## permafrost
+site.dt$pf.prob <- raster::extract(pf.prob.r, pts.laea)/100
+site.dt$magt.degC <- raster::extract(pf.magt.r, pts.laea)/10
+
 ## topo
 site.dt$elev.m <- raster::extract(elev.r, pts.laea)
 site.dt$slope.deg <- raster::extract(slope.r, pts.laea)
@@ -117,3 +125,12 @@ for (j in 1:nrow(clim.trend.files.df)){
 
 # WRITE OUT FILE =========================================================================
 fwrite(site.dt, 'output/boreal_sample_site_climate_and_landcover.csv')
+
+
+
+# sites <- site.dt$site
+# sites <- gsub('site_', '', sites)
+# sites <- sort(as.numeric(sites))
+# xx <- sites[1:100000 %in% sites == F]
+# length(xx)
+# dim(site.dt)
