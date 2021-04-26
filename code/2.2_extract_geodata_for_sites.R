@@ -126,11 +126,5 @@ for (j in 1:nrow(clim.trend.files.df)){
 # WRITE OUT FILE =========================================================================
 fwrite(site.dt, 'output/boreal_sample_site_climate_and_landcover.csv')
 
-
-
-# sites <- site.dt$site
-# sites <- gsub('site_', '', sites)
-# sites <- sort(as.numeric(sites))
-# xx <- sites[1:100000 %in% sites == F]
-# length(xx)
-# dim(site.dt)
+print("All done!!")
+# END SCRIPT==============================================================================

@@ -2,8 +2,8 @@
 #SBATCH --job-name=prep_lsat
 #SBATCH --output=/scratch/lb968/prep_lsat_%a.log
 #SBATCH --chdir=/scratch/lb968/
-#SBATCH --time=05:00:00
-#SBATCH --mem=70000
+#SBATCH --time=03:00:00
+#SBATCH --mem=50000
 #SBATCH --array=1-1000
 
 echo prep lsat vi

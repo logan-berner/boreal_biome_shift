@@ -90,7 +90,7 @@ lsat.gs.dt <- lsat.gs.dt[, n.yr.obs := length(unique(year)), by = site]
 # write out time series of annual growing season vegetation indices 
 mkdirs('output/lsat_vi_gs_timeseries')
 lsat.gs.dt[, rep := i]
-fwrite(lsat.gs.dt, paste0('output/lsat_vi_gs_site_timeseries/boreal_lsat_vi_gs_site_timeseries_rep_',i,'.csv'))
+fwrite(lsat.gs.dt, paste0('output/lsat_vi_gs_site_timeseries/lsat_vi_gs_boreal_site_timeseries_rep_',i,'.csv'))
 
 
 print('All done!')

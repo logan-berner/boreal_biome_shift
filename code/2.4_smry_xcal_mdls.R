@@ -11,11 +11,9 @@ require(ggplot2)
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 # READ IN FILES
-files <- list.files('output/xcal/', full.names = T)
-files <- files[grep('eval.csv', files)]
-
+files <- list.files('output/xcal/', pattern = 'eval.csv', full.names = T)
 xcal.dt <- do.call("rbind", lapply(files, fread))
-xcal.dt$rep <- sort(rep(1:10, 2))
+
 
 # SUMMARIZE EVALUATION COEFFICIENTS ACROSS MONTE CARLO ITERATIONS
 xcal.smry.dt <- xcal.dt[, .(rf.r2=paste0(round(median(rf.r2),3), ' [', round(quantile(rf.r2,0.025),3),',',round(quantile(rf.r2,0.975),3),']'),
@@ -28,6 +26,10 @@ xcal.smry.dt <- xcal.dt[, .(rf.r2=paste0(round(median(rf.r2),3), ' [', round(qua
                         by = c('band','sat')]
 
 xcal.smry.dt
+
+xcal.smry.dt$band <- factor(xcal.smry.dt$band, levels = c('ndvi','evi2','nirv','kndvi'))
+
+setorder(xcal.smry.dt, band)
 
 # WRITE OUT SUMMARY TABLE
 fwrite(xcal.smry.dt, 'output/lsat_vi_xcal_smry.csv')
