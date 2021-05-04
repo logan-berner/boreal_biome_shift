@@ -22,7 +22,7 @@ xcal.smry.dt <- xcal.dt[, .(rf.r2=paste0(round(median(rf.r2),3), ' [', round(qua
                             xval.r2=paste0(round(median(xval.r2),3), ' [', round(quantile(xval.r2,0.025),3),',',round(quantile(xval.r2,0.975),3),']'),
                             xval.rmse=paste0(round(median(xval.rmse),3), ' [', round(quantile(xval.rmse,0.025),3),',',round(quantile(xval.rmse,0.975),3),']'),
                             xval.bias=paste0(round(median(xval.bias),3), ' [', round(quantile(xval.bias,0.025),3),',',round(quantile(xval.bias,0.975),3),']'),
-                            xval.n=paste0(round(median(xval.n)), ' [', round(quantile(xval.n,0.025)),',',round(quantile(xval.n,0.975)),']')),
+                            xval.n=paste0(round(median(xval.n)), ' [', round(quantile(xval.n,0.025)),',',round(quantile(xval.n,0.975)),']'), n.mc.rep = .N),
                         by = c('band','sat')]
 
 xcal.smry.dt
