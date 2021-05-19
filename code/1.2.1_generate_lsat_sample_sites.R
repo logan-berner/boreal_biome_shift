@@ -51,6 +51,8 @@ writeRaster(aoi.r, 'data/gis_data/boreal_sampling_frame_300m_laea.tif', datatype
 # area of boreal biome and study domain
 biome.km2 <- cellStats(boreal.r, sum, na.rm=T) * 300^2 / 1000^2
 aoi.km2 <- cellStats(aoi.r, sum, na.rm=T) * 300^2 / 1000^2
+biome.km2
+aoi.km2
 aoi.km2 / biome.km2
 
 # anti boreal sampling domain
@@ -84,7 +86,7 @@ aoi.300km.r[aoi.300km.r==1] <- 1:length(vals)
 plot(aoi.300km.r)
 
 pts$cluster <- paste0('cluster_', raster::extract(aoi.300km.r, pts))
-table(pts$cluster)
+length(unique(pts$cluster))
 
 # EXTRACT LANDSAT DATA USING GEE ====================================================================================
 ee_Initialize()

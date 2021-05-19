@@ -22,7 +22,7 @@ laea <- CRS("+proj=laea +lat_0=90 +lon_0=180 +x_0=0 +y_0=0 +ellps=WGS84 +datum=W
 aea.rus <- '+proj=aea +lat_1=50 +lat_2=70 +lat_0=56 +lon_0=100 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
 setwd('C:/Users/Logan/Google Drive/research/nau/nasa_above/boreal_biome_shift/')
 
-##### LOAD FILES ------------------------------------------------------------------------------
+#### LOAD FILES ------------------------------------------------------------------------------
 # domain files
 land.45n.laea.shp <- readOGR(dsn = 'data/gis_data/land_45n_laea.shp')
 boreal.biome.laea.shp <- readOGR(dsn = 'data/gis_data/wwf_boreal_biome_laea.shp')
@@ -45,6 +45,10 @@ elu.file <- 'A:/research/data/landcover/World_ELU_2015/globalelu/World_ELU_2015.
 # MODIS tree cover 
 modis.treecov.r <- raster('C:/Users/Logan/Google Drive/earth_engine/modis_v6_boreal_treecov_median_2017to2019_250m_laea.tif') # exported from GEE
 
+# Permafrost probability and mean annual ground temperature
+pf.prob.file <- 'A:/research/data/soils/esa_permafrost_temperatures/UiO_PEX_PERPROB_5.0_20181128_2000_2016_NH/UiO_PEX_PERPROB_5.0_20181128_2000_2016_NH.tif'
+pf.magtm.file <- 'A:/research/data/soils/esa_permafrost_temperatures/UiO_PEX_MAGTM_5.0_20181127_2000_2016_NH/UiO_PEX_MAGTM_5.0_20181127_2000_2016_NH.tif'
+
 
 #### ECOLOGICAL LAND UNITS ------------------------------------------------------------------------------
 # project to laea, clip / mask to boreal biome
@@ -58,6 +62,30 @@ uniq.vals <- unique(values(elu.r))
 length(uniq.vals)
 
 writeRaster(elu.r, 'data/gis_data/ecological_land_unit_boreal_300m_laea.tif', datatype = 'INT2U', overwrite = T)
+
+
+#### PERMAFROST ------------------------------------------------------------------------------------------
+mkdirs('data/gis_data/permafrost/')
+
+# probability 
+pf.prob.gdalout.file <- 'C:/tmp/pf_prob_laea_1km.tif'
+gdalwarp(srcfile = pf.prob.file, dstfile = pf.prob.gdalout.file, t_srs = 'EPSG:3571', r = 'bilinear', tr = c(1000,1000), te = extnt[c(1,3,2,4)])
+
+pf.prob.r <- raster(pf.prob.gdalout.file)
+pf.prob.r <- crop(pf.prob.r, boreal.biome.laea.shp)
+pf.prob.r <- mask(pf.prob.r, boreal.biome.laea.shp)
+pf.prob.r <- round(pf.prob.r * 100)
+writeRaster(pf.prob.r, 'data/gis_data/permafrost/esa_globpermafrost_pf_prob_avg_2000to2016_boreal_1km_laea.tif', datatype = 'INT1U', overwrite = T)
+
+# ground temperature 
+pf.magt.gdalout.file <- 'C:/tmp/pf_magt_laea_1km.tif'
+gdalwarp(srcfile = pf.magt.file, dstfile = pf.magt.gdalout.file, t_srs = 'EPSG:3571', r = 'bilinear', tr = c(1000,1000), te = extnt[c(1,3,2,4)])
+
+pf.magt.r <- raster(pf.magt.gdalout.file)
+pf.magt.r <- crop(pf.magt.r, boreal.biome.laea.shp)
+pf.magt.r <- mask(pf.magt.r, boreal.biome.laea.shp)
+pf.magt.r <- round(pf.magt.r * 10)
+writeRaster(pf.magt.r, 'data/gis_data/permafrost/esa_globpermafrost_pf_magt_avg_degCx10_2000to2016_boreal_1km_laea.tif', datatype = 'INT2S', overwrite = T)
 
 
 #### MODIS TREE COVER ============================================================================
