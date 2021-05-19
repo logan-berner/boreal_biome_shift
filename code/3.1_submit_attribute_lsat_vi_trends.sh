@@ -2,7 +2,7 @@
 #SBATCH --job-name=fit_rf
 #SBATCH --output=/scratch/lb968/fit_rf_%a.log
 #SBATCH --chdir=/scratch/lb968/
-#SBATCH --time=05:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=50000
 #SBATCH --cpus-per-task=1
 #SBATCH --array=1-10

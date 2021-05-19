@@ -19,7 +19,7 @@ rasterOptions(tmpdir=tmp.dir)
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 # READ IN FILES ================================================================================================================
-# site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
+site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
 landcov.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_landcov_trends_frac/mc_reps_tabular/', full.names = T), fread))
 ecounit.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_tabular/', full.names = T), fread))
 ecounit.median.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_median/mc_reps_tabular/', full.names = T), fread))
@@ -38,6 +38,14 @@ boreal.pxl.dt <- na.omit(boreal.pxl.dt)
 #                                     by = c('site','period')]
 # 
 # fwrite(site.trnds.smry.dt, 'output/lsat_vi_gs_site_trends/boreal_lsat_vi_site_trend_summary.csv')
+
+# SITES TRENDS BY LATITUDE ===============================================================================================================================
+site.trnds.dt[, latitude.rnd := round(latitude/5)*5] # round to nearest 5th degree
+lat.smry.dt <- site.trnds.dt[, .(n.sites = .N), by = c('trend.period','latitude.rnd','rep','trend.cat')]
+lat.smry.dt[, n.sites.lat := sum(n.sites), by = c('trend.period','latitude.rnd','rep')]
+lat.smry.dt[, pcnt.sites := n.sites / n.sites.lat * 100]
+fwrite(lat.smry.dt, 'output/lsat_vi_gs_latitude_frac_trends_summary.csv')
+
 
 # BIOME: FRACTION OF TRENDS IN EACH CATEGORY BY VEG INDEX =========================================================================================================
 biome.frac.trnds.dt <- biome.frac.trnds.dt[trend.cat != '']

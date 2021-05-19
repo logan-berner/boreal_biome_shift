@@ -36,31 +36,38 @@ conf.mtx.dt[Prediction == 'none', Prediction := 'no trend']
 conf.mtx.dt[Reference == 'none', Reference := 'no trend']
 
 accur.dt[class == 'none', class := 'no trend']
-
+lc.classes <- unique(accur.dt$landcov.name)
 # SUMMARIZE ACROSS MONTE CARLO SIMULATIONS ====================================================================================
 
 # classification accuracy
 cols <- names(accur.dt)[c(2,3,12,13)]
-accur.med.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(median(x),3)}), by = class, .SDcols = cols])
-accur.q025.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(quantile(x,0.025),3)}), by = class, .SDcols = cols])
-accur.q975.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(quantile(x,0.975),3)}), by = class, .SDcols = cols])
-accur.smry.dt <- data.table(matrix(paste0(accur.med.mtx, ' [', accur.q025.mtx, ', ', accur.q975.mtx,']'), ncol = 5))
-colnames(accur.smry.dt) <- capitalize(colnames(accur.med.mtx))
-accur.smry.dt$Class <- c('browning','none','greening')
+accur.q500.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(median(x),3)}), by = c('landcov.name','class'), .SDcols = cols])
+accur.q025.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(quantile(x,0.025),3)}), by = c('landcov.name','class'), .SDcols = cols])
+accur.q975.mtx <- as.matrix(accur.dt[, lapply(.SD, function(x){round(quantile(x,0.975),3)}), by = c('landcov.name','class'), .SDcols = cols])
+accur.smry.dt <- data.table(matrix(paste0(accur.q500.mtx, ' [', accur.q025.mtx, ', ', accur.q975.mtx,']'), ncol = 6))
+colnames(accur.smry.dt) <- capitalize(colnames(accur.q500.mtx))
+accur.smry.dt$Class <- rep(c('browning','none','greening'), nrow(accur.smry.dt)/3)
+accur.smry.dt$Landcov.name <- sort(rep(lc.classes, nrow(accur.smry.dt)/length(lc.classes)))
 accur.smry.dt
 fwrite(accur.smry.dt, 'output/lsat_vi_gs_site_trends_attribute/lsat_vi_gs_site_trend_rf_classification_accuracy_summary.csv')
 
+
 # variable importance
-var.imp.smry.dt <- var.imp.dt[, .(imp=median(MeanDecreaseAccuracy), imp.q025=quantile(MeanDecreaseAccuracy,0.025), imp.q975=quantile(MeanDecreaseAccuracy,0.975)), by = c('var')]
-var.imp.smry.dt <- var.imp.smry.dt[order(-imp)]
-top.vars <- var.imp.smry.dt[1:6]
+var.imp.smry.dt <- var.imp.dt[, .(imp.q500=median(MeanDecreaseAccuracy), 
+                                  imp.q025=quantile(MeanDecreaseAccuracy,0.025), 
+                                  imp.q975=quantile(MeanDecreaseAccuracy,0.975)), 
+                              by = c('landcov.name','var')]
+
+var.imp.smry.dt <- var.imp.smry.dt[order(landcov.name, -imp.q500)]
+setkey(var.imp.smry.dt, key="landcov.name")
+top.vars.dt <- var.imp.smry.dt[, head(.SD, 5), by=landcov.name] # top 5 variables per land cover class
 var.imp.smry.dt
 fwrite(var.imp.smry.dt, 'output/lsat_vi_gs_site_trends_attribute/lsat_vi_gs_site_trend_rf_variable_importance_summary.csv')
 
 # confusion matrix
 conf.mtx.dt[, Prediction := factor(Prediction, levels = c('browning','no trend','greening'))]
 conf.mtx.dt[, Reference := factor(Reference, levels = c('browning','no trend','greening'))]
-conf.mtx.smry.dt <- conf.mtx.dt[, .(N=median(N), N.q025=round(quantile(N,0.025)), N.q975=round(quantile(N,0.975))), by = c('Prediction','Reference')]
+conf.mtx.smry.dt <- conf.mtx.dt[, .(N=median(N), N.q025=round(quantile(N,0.025)), N.q975=round(quantile(N,0.975))), by = c('landcov.name','Reference','Prediction')]
 conf.mtx.smry.fncy.dt <- conf.mtx.smry.dt[,1:2]
 conf.mtx.smry.fncy.dt$N <- paste0(conf.mtx.smry.dt$N, ' [', conf.mtx.smry.dt$N.q025, ', ', conf.mtx.smry.dt$N.q975, ']')
 conf.mtx.smry.fncy.dt <- dcast(conf.mtx.smry.fncy.dt, Reference ~ Prediction, value.var = 'N')
@@ -123,8 +130,8 @@ pd.num.smry.dt <- pd.num.dt[, .(prob=median(prob, na.rm=T), prob.q025=quantile(p
 trend.cols <- c('lightsalmon4','gray50','springgreen4')
 
 # variable importance
-vap.imp.top.dt <- var.imp.dt[var %in% top.vars$var]
-vap.imp.top.dt[, var := factor(var, levels = rev(top.vars$var))]
+vap.imp.top.dt <- var.imp.dt[var %in% top.vars.dt$var]
+vap.imp.top.dt[, var := factor(var, levels = rev(top.vars.dt$var))]
 
 var.imp.fig <- ggplot() + coord_flip() + theme_bw()
 var.imp.fig <- var.imp.fig + stat_boxplot_custom(data = vap.imp.top.dt, mapping = aes(var, MeanDecreaseAccuracy), 
@@ -143,8 +150,8 @@ dev.off()
 
 
 # partial dependency of most important vars
-pd.smry.top.dt <- pd.num.smry.dt[var %in% top.vars$var]
-pd.smry.top.dt[, var := factor(var, levels = top.vars$var, labels = pd.labs)]
+pd.smry.top.dt <- pd.num.smry.dt[var %in% top.vars.dt$var]
+pd.smry.top.dt[, var := factor(var, levels = top.vars.dt$var, labels = pd.labs)]
 pd.smry.top.dt[, class := factor(class, levels = c('browning','no trend','greening'))]
 # pd.smry.top.dt <- pd.smry.top.dt[class != 'none']
 # pd.smry.top.dt <- pd.smry.top.dt[ecdf > 0.05 & ecdf < 0.95]
