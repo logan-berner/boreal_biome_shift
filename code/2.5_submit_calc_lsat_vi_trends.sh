@@ -1,12 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=calc_lsat_ndvi_trnd
-#SBATCH --output=/scratch/lb968/calc_lsat_ndvi_trnd%a.log
+#SBATCH --job-name=calc_lsat_vi_trnd
+#SBATCH --output=/scratch/lb968/calc_lsat_vi_trnd%a.log
 #SBATCH --chdir=/scratch/lb968/
-#SBATCH --time=00:4:00
-#SBATCH --mem=25000
-#SBATCH --partition=all
-#SBATCH --cpus-per-task=1
-#SBATCH --array=1-100
+#SBATCH --time=00:20:00
+#SBATCH --mem=5000
+#SBATCH --array=1-1000
 
 echo calc lsat vi trnd  
 date

@@ -1,7 +1,7 @@
 # ABOUT THIS SCRIPT  ==============================================================================================================
 # This R script summarizes boreal forest vegetation greenness trends across Monte Carlo simulations
 # AUTHOR: LOGAN BERNER, NAU
-# DATE: 2021-04-21
+# DATE: 2021-04-27
 
 # SET UP WORKSPACE ==============================================================================================================
 rm(list=ls())
@@ -10,183 +10,193 @@ require(data.table)
 require(ggplot2)
 require(raster)
 require(dplyr)
+require(rgdal)
+
+tmp.dir <- '/scratch/lb968/lsat_vi_trend_smry/'
+tempfile(tmpdir=tmp.dir)
+rasterOptions(tmpdir=tmp.dir)
 
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 # READ IN FILES ================================================================================================================
-# tabular data
-site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
+# site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
+landcov.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_landcov_trends_frac/mc_reps_tabular/', full.names = T), fread))
+ecounit.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_tabular/', full.names = T), fread))
+ecounit.median.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_median/mc_reps_tabular/', full.names = T), fread))
+biome.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_biome_trends_frac/mc_reps_tabular/', full.names = T), fread))
 
-zonal.avg.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_zonal_avg_trends/mc_reps/', full.names = T), fread))
-zonal.freq.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_zonal_freq_trends/mc_reps/', full.names = T), fread))
+ecounit.r <- raster('data/gis_data/ecological_land_unit_boreal_aoi_300m_laea.tif')     
+boreal.r <- raster('data/gis_data/wwf_boreal_biome_laea_300m.tif')
+boreal.r[] <- NA
+boreal.pxl.dt <- data.table(cellid = 1:ncell(boreal.r), ecounit = values(ecounit.r))
+boreal.pxl.dt <- na.omit(boreal.pxl.dt)
 
-# rasters
-grn.gte1985.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'greening_p10_1985to2016', full.names = T)
-grn.gte2000.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'greening_p10_2000to2016', full.names = T)
-brn.gte1985.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'browning_p10_1985to2016', full.names = T)
-brn.gte2000.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'browning_p10_2000to2016', full.names = T)
-site.cnt.gte1985.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'site_cnt_1985to2016', full.names = T)
-site.cnt.gte2000.raster.files <- list.files('output/lsat_gridded_trends/mc_reps/', pattern = 'site_cnt_2000to2016', full.names = T)
+# # SITE TRENDS NDVI ================================================================================================================
+# site.trnds.smry.dt <- site.trnds.dt[, .(int=median(int, na.rm = T), int.q025=quantile(int,0.025, na.rm = T), int.q975=quantile(int,0.975, na.rm = T),
+#                                         vi.change=median(total.change, na.rm = T), vi.change.q025=quantile(total.change,0.025, na.rm = T), vi.change.q975=quantile(total.change,0.975, na.rm = T),
+#                                         vi.change.pcnt=median(total.change.pcnt, na.rm = T), vi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), vi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
+#                                     by = c('site','period')]
+# 
+# fwrite(site.trnds.smry.dt, 'output/lsat_vi_gs_site_trends/boreal_lsat_vi_site_trend_summary.csv')
 
-# SITE TRENDS NDVI -------------------------------------------------------------------
-site.trnds.smry.dt <- site.trnds.dt[, .(int=median(int, na.rm = T), int.q025=quantile(int,0.025, na.rm = T), int.q975=quantile(int,0.975, na.rm = T),
-                                        vi.change=median(total.change, na.rm = T), vi.change.q025=quantile(total.change,0.025, na.rm = T), vi.change.q975=quantile(total.change,0.975, na.rm = T),
-                                        vi.change.pcnt=median(total.change.pcnt, na.rm = T), vi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), vi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
-                                    by = c('site','period')]
-
-fwrite(site.trnds.smry.dt, 'output/lsat_vi_gs_site_trends/boreal_lsat_vi_site_trend_summary.csv')
-
-
-# TRENDS IN ZONAL AVERAGE NDVI -------------------------------------------------------------------
-zonal.avg.trnds.smry.dt <- zonal.avg.trnds.dt[, .(#int=median(int), int.q025=quantile(int,0.025), int.q975=quantile(int,0.975),
-                                                  slope=median(slope), slope.q025=quantile(slope,0.025), slope.q975=quantile(slope,0.975),
-                                                  tau=median(tau), tau.q025=quantile(tau,0.025), tau.q975=quantile(tau,0.975),
-                                                  pval=median(pval), pval.q025=quantile(pval,0.025), pval.q975=quantile(pval,0.975),
-                                                  total.change=median(total.change), total.change.q025=quantile(total.change,0.025), total.change.q975=quantile(total.change,0.975),
-                                                  total.change.pcnt=median(total.change.pcnt), total.change.pcnt.q025=quantile(total.change.pcnt,0.025), total.change.pcnt.q975=quantile(total.change.pcnt,0.975)),
-                                              by = c('period','lat.zone')]
-
-zonal.avg.trnds.smry.dt
-fwrite(zonal.avg.trnds.smry.dt, 'output/lsat_zonal_avg_trends/lsat_zonal_avg_trend_summary.csv')
-
-# pretty output table 
-zonal.avg.trnds.smry.fancy.dt <- zonal.avg.trnds.smry.dt[, .(tau = paste0(sprintf("%.2f", tau),' [',sprintf("%.2f", tau.q025),',',sprintf("%.2f", tau.q975),']'),
-                                                             total.change = paste0(sprintf("%.3f", total.change),' [',sprintf("%.3f", total.change.q025),',',sprintf("%.3f", total.change.q975),']'),
-                                                             total.change.pcnt = paste0(sprintf("%.1f", total.change.pcnt),' [',sprintf("%.1f", total.change.pcnt.q025),',',sprintf("%.1f", total.change.pcnt.q975),']'),
-                                                             slope = paste0(sprintf("%.4f", slope),' [',sprintf("%.4f", slope.q025),',',sprintf("%.4f", slope.q975),']')), 
-                                                         by=c('period','lat.zone')]
-
-zonal.avg.trnds.smry.fancy.dt[, lat.zone := recode(lat.zone, High = "High Arctic", Low = "Low Arctic", Oro = "Oro Arctic", biome = "Arctic")]
-zonal.avg.trnds.smry.fancy.dt[, lat.zone := factor(lat.zone, levels = c('Arctic','High Arctic','Low Arctic','Oro Arctic'))]
-zonal.avg.trnds.smry.fancy.dt <- zonal.avg.trnds.smry.fancy.dt[order(period, lat.zone)]
-
-zonal.avg.trnds.smry.fancy.dt
-fwrite(zonal.avg.trnds.smry.fancy.dt, 'output/lsat_zonal_avg_trends/lsat_zonal_avg_trend_summary_fancy.csv')
-
-
-# FREQ OF NDVI TRENDS BY ZONE ------------------------------------------------------------------------
-zonal.freq.trnds.smry.dt <- zonal.freq.trnds.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
-                                                    pcnt.sites=median(pcnt.sites), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975)), 
-                                                by = c('period','lat.zone','trend.cat')]
-
-zonal.freq.trnds.smry.dt
-fwrite(zonal.freq.trnds.smry.dt, 'output/lsat_zonal_freq_trends/lsat_zonal_freq_trend_summary.csv')
-
-# aggregate trends with P < 0.1 and P < 0.05 and recompute freq
-zonal.freq.trnds.dt$slope.cat <- NA_character_
-zonal.freq.trnds.dt[trend.cat == 'browning (p<0.05)' | trend.cat == 'browning (p<0.10)', slope.cat := 'browning']
-zonal.freq.trnds.dt[trend.cat == 'greening (p<0.05)' | trend.cat == 'greening (p<0.10)', slope.cat := 'greening']
-zonal.freq.trnds.dt[trend.cat == 'no trend', slope.cat := 'no trend']
-
-zonal.freq.trnds.p10.dt <- zonal.freq.trnds.dt[, .(n.sites = sum(n.sites),n.sites.zone=first(n.sites.zone)), by = c('period','lat.zone','slope.cat','rep')]
-zonal.freq.trnds.p10.dt <- zonal.freq.trnds.p10.dt[, pcnt.sites := n.sites/n.sites.zone*100]
+# BIOME: FRACTION OF TRENDS IN EACH CATEGORY BY VEG INDEX =========================================================================================================
+biome.frac.trnds.dt <- biome.frac.trnds.dt[trend.cat != '']
+biome.frac.trnds.dt[, n.sites := as.numeric(n.sites)]
 
 ## calc ratio of greening to browning
-g2b.dt <- dcast(zonal.freq.trnds.p10.dt, period + lat.zone + rep ~ slope.cat, value.var = 'pcnt.sites')
-g2b.dt <- g2b.dt[, g2b := greening / browning][, c('browning','greening','no trend') := NULL]
-zonal.freq.trnds.p10.dt <- g2b.dt[zonal.freq.trnds.p10.dt, on = c('period','lat.zone','rep')]
+g2b.dt <- dcast(biome.frac.trnds.dt, trend.period + rep ~ trend.cat, value.var = 'pcnt.sites')
+g2b.dt <- g2b.dt[, g2b := greening / browning][, c('browning','greening','no_trend') := NULL]
+biome.frac.trnds.dt <- g2b.dt[biome.frac.trnds.dt, on = c('trend.period','rep')]
 
-zonal.freq.trnds.p10.smry.dt <- zonal.freq.trnds.p10.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
+# summary for each VI 
+biome.frac.trnds.smry.dt <- biome.frac.trnds.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
                                                     pcnt.sites=median(pcnt.sites), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975), 
-                                                    g2b=median(g2b), g2b.q025=quantile(g2b,0.025), g2b.q975=quantile(g2b,0.975)),
-                                                by = c('period','lat.zone','slope.cat')]
-zonal.freq.trnds.p10.smry.dt <- cbind(zonal.freq.trnds.p10.smry.dt[, 1:3], round(zonal.freq.trnds.p10.smry.dt[,-c(1:3)],1)) # round numeric cols
+                                                    g2b=median(g2b), g2b.q025=quantile(g2b,0.025), g2b.q975=quantile(g2b,0.975), n.MC = .N),
+                                                by = c('trend.period','vi.name','trend.cat')]
 
-fwrite(zonal.freq.trnds.p10.smry.dt, 'output/lsat_zonal_freq_trends/lsat_zonal_freq_trend_p10_summary.csv')
+# summary across ensemble
+biome.frac.trnds.ens.smry.dt <- biome.frac.trnds.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
+                                                        pcnt.sites=median(pcnt.sites), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975), 
+                                                        g2b=median(g2b), g2b.q025=quantile(g2b,0.025), g2b.q975=quantile(g2b,0.975), n.MC = .N, vi.name = 'ensemble'),
+                                                    by = c('trend.period','trend.cat')]
 
-# fancy wide-format table
-zonal.freq.trnds.p10.smry.dt[, ':='(n.sites = sum(n.sites), n.sites.q025 = sum(n.sites.q025), n.sites.q975 = sum(n.sites.q975)), by = c('period','lat.zone')]
-zonal.freq.trnds.p10.smry.fancy.dt <- zonal.freq.trnds.p10.smry.dt[, .(n.sites = paste0(sprintf("%.0f", n.sites),' [',sprintf("%.0f", n.sites.q025),', ',sprintf("%.0f", n.sites.q975),']'),
-                                                                       pcnt.sites = paste0(sprintf("%.1f", pcnt.sites),' [',sprintf("%.1f", pcnt.sites.q025),', ',sprintf("%.1f", pcnt.sites.q975),']'),
-                                                                       g2b = paste0(sprintf("%.1f", g2b),' [',sprintf("%.1f", g2b.q025),', ',sprintf("%.1f", g2b.q975),']')), 
-                                                                   by=c('period','lat.zone','slope.cat')]
+# combine ensemble and all VIs
+biome.frac.trnds.smry.dt <- rbind(biome.frac.trnds.smry.dt, biome.frac.trnds.ens.smry.dt)
 
-zonal.freq.trnds.p10.smry.fancy.dt <- zonal.freq.trnds.p10.smry.fancy.dt[order(period,lat.zone)]
-zonal.freq.trnds.p10.smry.fancy.wide.dt <- dcast(zonal.freq.trnds.p10.smry.fancy.dt, period + lat.zone + n.sites ~ slope.cat, value.var = c('pcnt.sites','g2b'))
-fwrite(zonal.freq.trnds.p10.smry.fancy.wide.dt, 'output/lsat_zonal_freq_trends/lsat_zonal_freq_trend_p10_summary_fancy_wide.csv')
+# round numeric cols
+biome.frac.trnds.smry.dt <- cbind(biome.frac.trnds.smry.dt[, 1:3], round(biome.frac.trnds.smry.dt[,-c(1:3)],1))
 
-# GRIDDED NDVI TRENDS ------------------------------------------------------------
-print('starting gridded greening trends...')
-# greening 1985 to 2016 ---
-stk <- stack(grn.gte1985.raster.files)
+# fancy table
+biome.frac.trnds.smry.fancy.dt <- biome.frac.trnds.smry.dt[, .(n.sites = paste0(sprintf("%.0f", n.sites),' [',sprintf("%.0f", n.sites.q025),', ',sprintf("%.0f", n.sites.q975),']'),
+                                                               pcnt.sites = paste0(sprintf("%.1f", pcnt.sites),' [',sprintf("%.1f", pcnt.sites.q025),', ',sprintf("%.1f", pcnt.sites.q975),']'),
+                                                               g2b = paste0(sprintf("%.1f", g2b),' [',sprintf("%.1f", g2b.q025),', ',sprintf("%.1f", g2b.q975),']'), n.MC = n.MC), 
+                                                           by=c('trend.period','vi.name','trend.cat')]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_1985to2016_med_50km_laea.tif', overwrite=T)
+biome.frac.trnds.smry.fancy.dt$vi.name <- factor(biome.frac.trnds.smry.fancy.dt$vi.name, levels = c('ndvi','evi2','nirv','kndvi','ensemble'))
+biome.frac.trnds.smry.fancy.dt <- biome.frac.trnds.smry.fancy.dt[order(trend.period, vi.name)]
 
-stk.p025 <- calc(stk, fun=function(x){quantile(x, 0.025, na.rm = T)})
-writeRaster(stk.p025, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_1985to2016_p025_50km_laea.tif', overwrite=T)
+# write out
+fwrite(biome.frac.trnds.smry.dt, 'output/lsat_vi_gs_biome_trends_frac/lsat_vi_gs_boreal_biome_frac_trends_summary.csv')
+fwrite(biome.frac.trnds.smry.fancy.dt, 'output/lsat_vi_gs_biome_trends_frac/lsat_vi_gs_boreal_biome_frac_trends_summary_fancy.csv')
 
-stk.p975 <- calc(stk, fun=function(x){quantile(x, 0.975, na.rm = T)})
-writeRaster(stk.p975, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_1985to2016_p975_50km_laea.tif', overwrite=T)
 
-rm(stk)
+# LANDCOVER: FRACTION OF TRENDS IN EACH LANDCOVER CATEGORY ===========================================================================
+landcov.frac.trnds.dt <- landcov.frac.trnds.dt[trend.cat != '']
+landcov.frac.trnds.dt[, n.sites := as.numeric(n.sites)]
 
-# greening 2000 to 2016 ---
-stk <- stack(grn.gte2000.raster.files)
+## calc ratio of greening to browning
+g2b.dt <- dcast(landcov.frac.trnds.dt, trend.period + rep + landcov.name ~ trend.cat, value.var = 'pcnt.sites')
+g2b.dt <- g2b.dt[, g2b := greening / browning][, c('browning','greening','no_trend') := NULL]
+landcov.frac.trnds.dt <- g2b.dt[landcov.frac.trnds.dt, on = c('trend.period','rep','landcov.name')]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_2000to2016_med_50km_laea.tif', overwrite=T)
+# summary for each VI 
+landcov.frac.trnds.smry.dt <- landcov.frac.trnds.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
+                                                        pcnt.sites=median(pcnt.sites), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975), 
+                                                        g2b=median(g2b), g2b.q025=quantile(g2b,0.025), g2b.q975=quantile(g2b,0.975), n.MC = .N),
+                                                    by = c('trend.period','vi.name','landcov.name','trend.cat')]
 
-stk.p025 <- calc(stk, fun=function(x){quantile(x, 0.025, na.rm = T)})
-writeRaster(stk.p025, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_2000to2016_p025_50km_laea.tif', overwrite=T)
+# summary across ensemble
+landcov.frac.trnds.ens.smry.dt <- landcov.frac.trnds.dt[, .(n.sites=median(n.sites), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
+                                                            pcnt.sites=median(pcnt.sites), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975), 
+                                                            g2b=median(g2b), g2b.q025=quantile(g2b,0.025), g2b.q975=quantile(g2b,0.975), n.MC = .N, vi.name = 'ensemble'),
+                                                        by = c('trend.period','landcov.name','trend.cat')]
 
-stk.p975 <- calc(stk, fun=function(x){quantile(x, 0.975, na.rm = T)})
-writeRaster(stk.p975, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_greening_p10_2000to2016_p975_50km_laea.tif', overwrite=T)
+# combine ensemble and all VIs
+landcov.frac.trnds.smry.dt <- rbind(landcov.frac.trnds.smry.dt, landcov.frac.trnds.ens.smry.dt)
 
-rm(stk)
+# round numeric cols
+landcov.frac.trnds.smry.dt <- cbind(landcov.frac.trnds.smry.dt[, 1:4], round(landcov.frac.trnds.smry.dt[,-c(1:4)],1))
 
-# browning 1985 to 2016 --- 
-print('starting gridded browning trends...')
-stk <- stack(brn.gte1985.raster.files)
+# fancy table
+landcov.frac.trnds.smry.fancy.dt <- landcov.frac.trnds.smry.dt[, .(n.sites = paste0(sprintf("%.0f", n.sites),' [',sprintf("%.0f", n.sites.q025),', ',sprintf("%.0f", n.sites.q975),']'),
+                                                                   pcnt.sites = paste0(sprintf("%.1f", pcnt.sites),' [',sprintf("%.1f", pcnt.sites.q025),', ',sprintf("%.1f", pcnt.sites.q975),']'),
+                                                                   g2b = paste0(sprintf("%.1f", g2b),' [',sprintf("%.1f", g2b.q025),', ',sprintf("%.1f", g2b.q975),']'), n.MC = n.MC), 
+                                                               by=c('trend.period','vi.name','landcov.name','trend.cat')]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_1985to2016_med_50km_laea.tif', overwrite=T)
+landcov.frac.trnds.smry.fancy.dt$vi.name <- factor(landcov.frac.trnds.smry.fancy.dt$vi.name, levels = c('ndvi','evi2','nirv','kndvi','ensemble'))
+landcov.frac.trnds.smry.fancy.dt <- landcov.frac.trnds.smry.fancy.dt[order(trend.period, vi.name, landcov.name, trend.cat)]
 
-stk.p025 <- calc(stk, fun=function(x){quantile(x, 0.025, na.rm = T)})
-writeRaster(stk.p025, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_1985to2016_p025_50km_laea.tif', overwrite=T)
+# write out
+fwrite(landcov.frac.trnds.smry.dt, 'output/lsat_vi_gs_landcov_trends_frac/lsat_vi_gs_boreal_landcov_frac_trends_summary.csv')
+fwrite(landcov.frac.trnds.smry.fancy.dt, 'output/lsat_vi_gs_landcov_trends_frac/lsat_vi_gs_boreal_landcov_frac_trends_summary_fancy.csv')
 
-stk.p975 <- calc(stk, fun=function(x){quantile(x, 0.975, na.rm = T)})
-writeRaster(stk.p975, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_1985to2016_p975_50km_laea.tif', overwrite=T)
 
-plot(stk.med)
+# ECOREGION: FRACTION OF TRENDS IN EACH ECOUNIT (SPATIALIZE) =========================================================================================
+str(ecounit.frac.trnds.dt)
 
-rm(stk)
+ecounit.frac.trnds.ens.smry.dt <- ecounit.frac.trnds.dt[, .(n.sites.q500=quantile(n.sites, 0.500), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
+                                                        pcnt.sites.q500=quantile(pcnt.sites, 0.500), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975)),
+                                                    by = c('trend.period','ecounit','trend.cat')]
 
-# browning 2000 to 2016 ---
-stk <- stack(brn.gte2000.raster.files)
+ecounit.frac.trnds.ens.smry.long.dt <- melt(ecounit.frac.trnds.ens.smry.dt, id.vars = c('trend.period','trend.cat','ecounit'))
+ecounit.frac.trnds.ens.smry.long.dt[, value := round(value)]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_2000to2016_med_50km_laea.tif', overwrite=T)
 
-stk.p025 <- calc(stk, fun=function(x){quantile(x, 0.025, na.rm = T)})
-writeRaster(stk.p025, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_2000to2016_p025_50km_laea.tif', overwrite=T)
+ # spatialize trend fractions ------------------------
+trend.periods <- c('1985to2019','2000to2019')
+trend.cats <- c('browning','greening')
+vars <- unique(ecounit.frac.trnds.ens.smry.long.dt$variable)
 
-stk.p975 <- calc(stk, fun=function(x){quantile(x, 0.975, na.rm = T)})
-writeRaster(stk.p975, 'output/lsat_gridded_trends/arctic_lsat_ndvi_pcnt_browning_p10_2000to2016_p975_50km_laea.tif', overwrite=T)
+# i = trend.periods[1]
+# j = trend.cats[1]
+# k = vars[1]
 
-plot(stk.med)
+for (i in trend.periods){
+  for (j in trend.cats){
+    for(k in vars){
+      dt <- ecounit.frac.trnds.ens.smry.long.dt[trend.period == i & trend.cat == j & variable == k]
+      pxl.dt <- boreal.pxl.dt[dt, on = 'ecounit']
+      pxl.dt <- na.omit(pxl.dt)
+      
+      trnd.r <- boreal.r
+      trnd.r[pxl.dt$cellid] <- round(pxl.dt$value)
+      
+      outname <- paste0('output/lsat_vi_gs_ecounit_trends_frac/lsat_vi_gs_boreal_ecounit_', j,'_', gsub('\\.','_', k),'_', i,'_300m_laea.tif')
+      writeRaster(trnd.r, outname, datatype = 'INT2U', overwrite=T)
+      
+      rm(trnd.r)
+      print(paste('finished gridding ', i,j,k, sep= ' '))
+    }
+  }
+}
 
-rm(stk)
 
-# stack count 1985 to 2016 ---
-print('starting gridded site counts...')
+# ECOREGION : MEDIAN TREND PER ECOUNIT ================================================================================================
+ecounit.median.trnds.ens.smry.dt <- ecounit.median.trnds.dt[, .(total.change.pcnt.med.q500=median(total.change.pcnt.med),
+                                                                total.change.pcnt.med.q025=quantile(total.change.pcnt.med,0.025),
+                                                                total.change.pcnt.med.q975=quantile(total.change.pcnt.med,0.975)),
+                                                        by = c('trend.period','ecounit')]
 
-stk <- stack(site.cnt.gte1985.raster.files)
+ecounit.median.trnds.ens.smry.long.dt <- melt(ecounit.median.trnds.ens.smry.dt, id.vars = c('trend.period','ecounit'))
+ecounit.median.trnds.ens.smry.long.dt[, value := round(value)]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_site_cnt_1985to2016_med_50km_laea.tif', overwrite=T)
+trend.periods <- c('1985to2019','2000to2019')
+vars <- unique(ecounit.median.trnds.ens.smry.long.dt$variable)
 
-# stack count 1985 to 2016 ---
-stk <- stack(site.cnt.gte2000.raster.files)
+# i = trend.periods[1]
+# j = vars[1]
 
-stk.med <- calc(stk, fun=median)
-writeRaster(stk.med, 'output/lsat_gridded_trends/arctic_lsat_site_cnt_2000to2016_med_50km_laea.tif', overwrite=T)
+for (i in trend.periods){
+  for(j in vars){
+    dt <- ecounit.median.trnds.ens.smry.long.dt[trend.period == i & variable == j]
+    pxl.dt <- boreal.pxl.dt[dt, on = 'ecounit']
+    pxl.dt <- na.omit(pxl.dt)
+      
+    trnd.r <- boreal.r
+    trnd.r[pxl.dt$cellid] <- round(pxl.dt$value)
+      
+    outname <- paste0('output/lsat_vi_gs_ecounit_trends_median/lsat_vi_gs_boreal_ecounit_', gsub('\\.','_', j),'_', i,'_300m_laea.tif')
+    writeRaster(trnd.r, outname, datatype = 'INT2S', overwrite=T)
+      
+    rm(trnd.r)
+    print(paste('finished gridding ', i,j, sep= ' '))
+  }
+}
 
-plot(stk.med)
 
-rm(stk)
-
-print('All done!')
-# END SCRIPTS --------------------------------------
-# 
-# ggplot(zonal.avg.trnds.dt, aes(total.change.pcnt)) + geom_histogram() + facet_grid(lat.zone ~ period)
+# CLEAN UP ======================================================================================================================
+gc()
+removeTmpFiles()
+unlink(tmp.dir, recursive = T)
+print("All done!!")
+# END SCRIPT ====================================================================================================================
