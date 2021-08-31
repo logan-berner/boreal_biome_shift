@@ -25,6 +25,8 @@ setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 # READ IN LANDSAT VI TIME SERIES  ==============================================================================================================
 print('Loading data...')  
 
+lsat.dt <- fread('data/lsat_samples/boreal_lsat_clean_data_100k_sites_1985to2016.csv')
+
 site.dt <- fread('output/boreal_sample_site_climate_and_landcover.csv')
 lsat.vi.dt <- fread(list.files('output/lsat_vi_gs_site_timeseries/', full.names = T)[i])
 
@@ -41,7 +43,7 @@ if (i < 10){
 
 
 # SITE: COMPUTE MANN-KENDALL TREND ===========================================================================================
-print('Computing vi trend for each site...')  
+print('Computing vi trend for each site...')
 mkdirs('output/lsat_vi_gs_site_trends/mc_reps')
 
 lsat.vi.site.trnd.1985.dt <- lsat_calc_trend(lsat.vi.dt, vi = 'vi.max', yrs = 1985:2019, yr.tolerance = 1, nyr.min.frac = 0.666, sig = 0.10)
@@ -52,6 +54,7 @@ lsat.vi.site.trnd.dt[, vi.name := vi.rep]
 lsat.vi.site.trnd.dt$rep <- i
 fwrite(lsat.vi.site.trnd.dt, paste0('output/lsat_vi_gs_site_trends/mc_reps/lsat_vi_gs_boreal_site_trends_rep_',i,'.csv'))
 
+lsat.vi.site.trnd.dt <- fread(paste0('output/lsat_vi_gs_site_trends/mc_reps/lsat_vi_gs_boreal_site_trends_rep_',i,'.csv'))
 
 # BIOME: COMPUTE % OF SAMPLING SITES THAT GREENED AND BROWNED ==============================================================
 print('Computing biome fractional trends...')
@@ -69,7 +72,7 @@ fwrite(lsat.vi.biome.frac.trnd.dt, paste0('output/lsat_vi_gs_biome_trends_frac/m
 
 
 # LANDCOVER: COMPUTE % OF SAMPLING SITES IN EACH LANDCOVER THAT GREENED AND BROWNED ==============================================================
-print('Computing landcover fractional trends...')
+print('Computing trend prevalence by landcover...')
 mkdirs('output/lsat_vi_gs_landcov_trends_frac/mc_reps_tabular')
 
 lsat.vi.site.trnd.dt$landcov.name <- site.dt$landcov.name[match(lsat.vi.site.trnd.dt$site, site.dt$site)]
@@ -85,6 +88,29 @@ setorder(lsat.vi.landcov.frac.trnd.dt, trend.period, landcov.name, trend.cat)
 lsat.vi.landcov.frac.trnd.dt[, vi.name := vi.rep]
 lsat.vi.landcov.frac.trnd.dt$rep <- i
 fwrite(lsat.vi.landcov.frac.trnd.dt, paste0('output/lsat_vi_gs_landcov_trends_frac/mc_reps_tabular/lsat_vi_gs_boreal_landcov_frac_trends_rep_',i,'.csv'))
+
+
+# LANDCOVER: COMPUTE % OF SAMPLE SITES THAT GREENED AND BROWNED ACROSS LAND COVER TYPES (I.E., WHERE DID G/B MOSTLY OCCUR?) ==================
+print('Computing trend occurrence within each landcover classes...')
+mkdirs('output/lsat_vi_gs_landcov_trends/mc_reps_tabular')
+
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.site.trnd.dt[ , .(n.sites.landcov.trnd = .N), by=c('trend.period','landcov.name','trend.cat')]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.site.trnd.dt[ , n.sites.landcov := sum(n.sites.landcov.trnd), by=c('trend.period','landcov.name','trend.cat')]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'greening', n.sites.trnd := sum(n.sites.landcov.trnd), by=c('trend.period')]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'browning', n.sites.trnd := sum(n.sites.landcov.trnd), by=c('trend.period')]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'no_trend', n.sites.trnd := sum(n.sites.landcov.trnd), by=c('trend.period')]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'greening', pcnt.sites := round(n.sites.landcov.trnd / n.sites.trnd * 100, 1)]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'browning', pcnt.sites := round(n.sites.landcov.trnd / n.sites.trnd * 100, 1)]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[trend.cat == 'no_trend', pcnt.sites := round(n.sites.landcov.trnd / n.sites.trnd * 100, 1)]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[, trend.cat := factor(trend.cat, levels = c('browning','no_trend','greening'))]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[order(landcov.name, trend.cat)]
+lsat.vi.landcov.frac.all.trnd.dt <- lsat.vi.landcov.frac.all.trnd.dt[is.na(trend.cat) == F & is.na(landcov.name) == F]
+setorder(lsat.vi.landcov.frac.all.trnd.dt, trend.period, landcov.name, trend.cat)
+
+lsat.vi.landcov.frac.all.trnd.dt[, vi.name := vi.rep]
+lsat.vi.landcov.frac.all.trnd.dt$rep <- i
+fwrite(lsat.vi.landcov.frac.all.trnd.dt, paste0('output/lsat_vi_gs_landcov_trends/mc_reps_tabular/lsat_vi_gs_boreal_landcov_trends_rep_',i,'.csv'))
+
 
 
 # ECOUNIT: COMPUTE % OF SAMPLING SITES IN EACH ECOUNIT THAT GREENED AND BROWNED ==============================================================
@@ -122,4 +148,5 @@ gc()
 removeTmpFiles()
 unlink(tmp.dir, recursive = T)
 print("All done!!")
+
 # END SCRIPT ====================================================================================================================

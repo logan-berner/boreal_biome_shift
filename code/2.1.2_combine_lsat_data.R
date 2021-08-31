@@ -1,5 +1,4 @@
-# This R script takes Landsat data downloaded from GEE and then post-processess the data to 
-# estimate annual NDVImax for 100,000 random sites in the boreal biome.
+# This R script combines Landsat data that were downloaded and cleaned in chunks for raodnm sites in the boreal biome.
 # Date: 2021-04-16
 rm(list=ls())
 .libPaths(c(.libPaths(), "~/R/", "/home/lb968/R/4.0.2/"))

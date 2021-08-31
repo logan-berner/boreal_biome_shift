@@ -66,7 +66,8 @@ var.files <- all.files[grep(var, all.files.short)]
 
 
 # LOOP THROUGHT PERIODS ====================================================================================
-periods.df <- data.frame(start.yr = c(1959,1985,2000), end.yr = c(2019, 2019, 2019))
+# periods.df <- data.frame(start.yr = c(1959,1985,2000), end.yr = c(2019, 2019, 2019))
+periods.df <- data.frame(start.yr = c(2000), end.yr = c(2019))
 n.periods <- nrow(periods.df)
 
 print('starting loop...')
@@ -110,26 +111,26 @@ for(j in 1:n.periods){
     writeRaster(stk.z.extrm, stk.anom.outfile, overwrite = T)
     print('finished computing anoms')
     
-    # #--------------------------------------------------
-    # # climate trend
-    # stk.trnd <- stack.trend(stk)
-    # 
-    # ## deal with non-NA pixels that show no variability through time 
-    # stk.trnd.na <- is.na(stk.trnd[[1]]) # id pixels in trend map that are NA
-    # stk.avg.notna <- is.na(stk.avg) == F # id pixels in var stack that are valid 
-    # stk.trnd.missing <- stk.avg.notna == 1 & stk.trnd.na == 1 # id valied pixels that are missing trend data 
-    # 
-    # stk.trnd[[1]][stk.trnd.missing == 1] <- 0 # trend
-    # stk.trnd[[2]][stk.trnd.missing == 1] <- 0 # total.change
-    # stk.trnd[[3]][stk.trnd.missing == 1] <- 0 # intercept
-    # stk.trnd[[4]][stk.trnd.missing == 1] <- 1 # pval
-    # stk.trnd[[5]][stk.trnd.missing == 1] <- 0 # tau
-    # stk.trnd[[6]][stk.trnd.missing == 1] <- 0 # trend.pcnt
-    # 
-    # stk.trnd.outfile <- paste('wateryear_trends/terraclim_boreal_', var,'_trend_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_wy_', var.meta.df$fun, '_', var.meta.df$units, '_laea_4km.tif', sep='')
-    # writeRaster(stk.trnd, stk.trnd.outfile, overwrite =T)
-    # print('finished computing trends')
-    # print(paste0('finished: ', j))
+    #--------------------------------------------------
+    # climate trend
+    stk.trnd <- stack.trend(stk)
+
+    ## deal with non-NA pixels that show no variability through time
+    stk.trnd.na <- is.na(stk.trnd[[1]]) # id pixels in trend map that are NA
+    stk.avg.notna <- is.na(stk.avg) == F # id pixels in var stack that are valid
+    stk.trnd.missing <- stk.avg.notna == 1 & stk.trnd.na == 1 # id valied pixels that are missing trend data
+
+    stk.trnd[[1]][stk.trnd.missing == 1] <- 0 # trend
+    stk.trnd[[2]][stk.trnd.missing == 1] <- 0 # total.change
+    stk.trnd[[3]][stk.trnd.missing == 1] <- 0 # intercept
+    stk.trnd[[4]][stk.trnd.missing == 1] <- 1 # pval
+    stk.trnd[[5]][stk.trnd.missing == 1] <- 0 # tau
+    stk.trnd[[6]][stk.trnd.missing == 1] <- 0 # trend.pcnt
+
+    stk.trnd.outfile <- paste('wateryear_trends/terraclim_boreal_', var,'_trend_',periods.df$start.yr[j],'to', periods.df$end.yr[j],'_wy_', var.meta.df$fun, '_', var.meta.df$units, '_laea_4km.tif', sep='')
+    writeRaster(stk.trnd, stk.trnd.outfile, overwrite =T)
+    print('finished computing trends')
+    print(paste0('finished: ', j))
 }
 
 # delete tmp directory

@@ -12,4 +12,4 @@ date
 module load R
 
 # run application
-srun Rscript /home/lb968/code/boreal_biome_shift/1.3.3_calc_terraclim_wy.R ${SLURM_ARRAY_TASK_ID} 
+srun Rscript /projects/arctic/users/lberner/boreal_biome_shift/code/1.3.3_calc_terraclim_wy.R ${SLURM_ARRAY_TASK_ID} 

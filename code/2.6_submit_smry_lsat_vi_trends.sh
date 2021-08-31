@@ -2,7 +2,7 @@
 #SBATCH --job-name=smry_lsat_vi_trnd
 #SBATCH --output=/scratch/lb968/smry_lsat_vi_trnd.log
 #SBATCH --chdir=/scratch/lb968/
-#SBATCH --time=01:30:00
+#SBATCH --time=03:00:00
 #SBATCH --mem=75000
 
 echo smry lsat vi trnds  

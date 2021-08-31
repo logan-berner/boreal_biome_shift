@@ -11,6 +11,7 @@ require(ggplot2)
 require(raster)
 require(dplyr)
 require(rgdal)
+require(sf)
 
 tmp.dir <- '/scratch/lb968/lsat_vi_trend_smry/'
 tempfile(tmpdir=tmp.dir)
@@ -19,32 +20,52 @@ rasterOptions(tmpdir=tmp.dir)
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/')
 
 # READ IN FILES ================================================================================================================
+site.dt <- fread('output/boreal_sample_site_climate_and_landcover.csv')
 site.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_site_trends/mc_reps/', full.names = T), fread))
 landcov.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_landcov_trends_frac/mc_reps_tabular/', full.names = T), fread))
+landcov.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_landcov_trends/mc_reps_tabular/', full.names = T), fread))
 ecounit.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_frac/mc_reps_tabular/', full.names = T), fread))
 ecounit.median.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_ecounit_trends_median/mc_reps_tabular/', full.names = T), fread))
 biome.frac.trnds.dt <- do.call("rbind", lapply(list.files('output/lsat_vi_gs_biome_trends_frac/mc_reps_tabular/', full.names = T), fread))
 
 ecounit.r <- raster('data/gis_data/ecological_land_unit_boreal_aoi_300m_laea.tif')     
 boreal.r <- raster('data/gis_data/wwf_boreal_biome_laea_300m.tif')
-boreal.r[] <- NA
+
 boreal.pxl.dt <- data.table(cellid = 1:ncell(boreal.r), ecounit = values(ecounit.r))
 boreal.pxl.dt <- na.omit(boreal.pxl.dt)
 
-# # SITE TRENDS NDVI ================================================================================================================
-# site.trnds.smry.dt <- site.trnds.dt[, .(int=median(int, na.rm = T), int.q025=quantile(int,0.025, na.rm = T), int.q975=quantile(int,0.975, na.rm = T),
-#                                         vi.change=median(total.change, na.rm = T), vi.change.q025=quantile(total.change,0.025, na.rm = T), vi.change.q975=quantile(total.change,0.975, na.rm = T),
-#                                         vi.change.pcnt=median(total.change.pcnt, na.rm = T), vi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), vi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
-#                                     by = c('site','period')]
-# 
-# fwrite(site.trnds.smry.dt, 'output/lsat_vi_gs_site_trends/boreal_lsat_vi_site_trend_summary.csv')
+# MEDIAN PERCENT CHANGE IN VEGETATION GREENNESS FOR EACH SAMPLE SITE DURING BOTH PERIODS ====================================================
+site.trnds.dt[pval <= 0.10, sig := 0]
+site.trnds.dt[pval > 0.10, sig := 1]
 
-# SITES TRENDS BY LATITUDE ===============================================================================================================================
-site.trnds.dt[, latitude.rnd := round(latitude/5)*5] # round to nearest 5th degree
-lat.smry.dt <- site.trnds.dt[, .(n.sites = .N), by = c('trend.period','latitude.rnd','rep','trend.cat')]
-lat.smry.dt[, n.sites.lat := sum(n.sites), by = c('trend.period','latitude.rnd','rep')]
-lat.smry.dt[, pcnt.sites := n.sites / n.sites.lat * 100]
-fwrite(lat.smry.dt, 'output/lsat_vi_gs_latitude_frac_trends_summary.csv')
+site.median.trnd.dt <- site.trnds.dt[, .(tau.q500 = quantile(tau, 0.50), tau.q025 = quantile(tau, 0.025), tau.q975 = quantile(tau, 0.975),
+                                         total.change.pcnt.q500 = quantile(total.change.pcnt, 0.50), total.change.pcnt.q025 = quantile(total.change.pcnt, 0.025), total.change.pcnt.q975 = quantile(total.change.pcnt, 0.975),  
+                                         sig.p10 = sum(sig)/1000), by = c('site','trend.period')]
+site.median.trnd.dt <- site.dt[site.median.trnd.dt, on = 'site']
+
+fwrite(site.median.trnd.dt, 'output/lsat_vi_gs_site_trends/lsat_vi_gs_boreal_site_median_trends.csv')
+
+# spatialize and write out
+site.sf <- st_as_sf(site.median.trnd.dt, coords = c("lon", "lat"), crs = 4326, agr = "constant")
+site.1985.sf <- site.sf %>% filter(trend.period == '1985to2019')
+site.2000.sf <- site.sf %>% filter(trend.period == '2000to2019')
+st_write(site.1985.sf, dsn = 'output/lsat_vi_gs_site_trends/lsat_vi_gs_boreal_site_median_trends_1985to2019.shp', append = F)
+st_write(site.2000.sf, dsn = 'output/lsat_vi_gs_site_trends/lsat_vi_gs_boreal_site_median_trends_2000to2019.shp', append = F)
+
+
+# MEDIAN PERCENT INCREASES IN VEGETATION GREENNESS ACROSS ALL SAMPLE SITES ========================================================================
+fivenum(site.trnds.dt$total.change.pcnt)
+biome.median.pcnt.change.reps.dt <- site.trnds.dt[, .(total.change.pcnt=median(total.change.pcnt, na.rm = T)), by = c('rep','trend.period')]
+biome.median.pcnt.change.reps.dt[, .(vi.change.pcnt.q500=median(total.change.pcnt, na.rm = T), 
+     vi.change.pcnt.q025=quantile(total.change.pcnt,0.025, na.rm = T), 
+     vi.change.pcnt.q975=quantile(total.change.pcnt,0.975, na.rm = T)),
+  by = c('trend.period')]
+
+
+# # SITES TRENDS BY LATITUDE ===============================================================================================================================
+# avg.lat.of.trend.cats.reps.dt <- site.trnds.dt[, .(lat.avg = mean(latitude, na.rm=T)), by = c('rep','trend.cat','trend.period')]
+# avg.lat.of.trend.cats.reps.dt[, .(lat.q500=median(lat.avg, na.rm = T), lat.q025=quantile(lat.avg,0.025, na.rm = T), lat.q975=quantile(lat.avg,0.975, na.rm = T)),
+#   by = c('trend.period', 'trend.cat')]
 
 
 # BIOME: FRACTION OF TRENDS IN EACH CATEGORY BY VEG INDEX =========================================================================================================
@@ -129,8 +150,71 @@ fwrite(landcov.frac.trnds.smry.dt, 'output/lsat_vi_gs_landcov_trends_frac/lsat_v
 fwrite(landcov.frac.trnds.smry.fancy.dt, 'output/lsat_vi_gs_landcov_trends_frac/lsat_vi_gs_boreal_landcov_frac_trends_summary_fancy.csv')
 
 
+# LANDCOVER: FRACTION OF ALL TRENDS OCCURING IN EACH LANDCOVER CATEGORY ===========================================================================
+landcov.trnds.dt <- landcov.trnds.dt[trend.cat != '']
+
+# summary across ensemble
+landcov.trnds.ens.smry.dt <- landcov.trnds.dt[, .(n.sites.landcov.q500=quantile(n.sites.landcov, 0.500), n.sites.landcov.q025=quantile(n.sites.landcov,0.025), n.sites.landcov.q975=quantile(n.sites.landcov,0.975),
+                                                  n.sites.landcov.trnd.q500=quantile(n.sites.landcov.trnd, 0.500), n.sites.landcov.trnd.q025=quantile(n.sites.landcov.trnd,0.025), n.sites.landcov.trnd.q975=quantile(n.sites.landcov.trnd,0.975),
+                                                  pcnt.sites.q500=quantile(pcnt.sites, 0.500), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975)), 
+                                              by = c('trend.period','landcov.name','trend.cat')]
+
+# round numeric cols
+landcov.trnds.ens.smry.dt <- cbind(landcov.trnds.ens.smry.dt[, 1:3], round(landcov.trnds.ens.smry.dt[,-c(1:3)],1))
+
+# fancy table
+landcov.trnds.smry.fancy.dt <- landcov.trnds.ens.smry.dt[, .(n.sites.landcov = paste0(sprintf("%.0f", n.sites.landcov.q500),' [',sprintf("%.0f", n.sites.landcov.q025),', ',sprintf("%.0f", n.sites.landcov.q975),']'),
+                                                             pcnt.sites = paste0(sprintf("%.1f", pcnt.sites.q500),' [',sprintf("%.1f", pcnt.sites.q025),', ',sprintf("%.1f", pcnt.sites.q975),']')),
+                                                         by=c('trend.period','landcov.name','trend.cat')]
+
+landcov.trnds.smry.fancy.dt <- landcov.trnds.smry.fancy.dt[order(trend.period, landcov.name, trend.cat)]
+
+# write out
+fwrite(landcov.trnds.ens.smry.dt, 'output/lsat_vi_gs_landcov_trends/lsat_vi_gs_boreal_landcov_trends_summary.csv')
+fwrite(landcov.trnds.smry.fancy.dt, 'output/lsat_vi_gs_landcov_trends/lsat_vi_gs_boreal_landcov_trends_summary_fancy.csv')
+
+
+# NUMBER OF SAMPLE SITES IN EACH 30 X 30 GRID CELL DURING BOTH TIME PERIODS ===================================================================== 
+
+# resample boreal to 30 x 30 km grid
+aoi.sum.30km.r <- raster::aggregate(boreal.r, fact = 100, fun = sum)
+aoi.cellid.30km.r <- aoi.sum.30km.r
+aoi.cellid.30km.r[] <- 1:ncell(aoi.cellid.30km.r)
+
+# determine which sites were used for trend analysis in each time period
+site.trnds.period.dt <- site.trnds.dt[, .(latitude = first(latitude), longitude = first(longitude)), by = c('site','trend.period')]
+
+# spatalize sample sites use in trend analysis
+site.sf <- st_as_sf(site.trnds.period.dt, coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>% st_transform(crs = st_crs(boreal.r))
+
+# extract grid cell id for each sample site 
+site.trnds.period.dt$cell.id <- raster::extract(aoi.cellid.30km.r, site.sf)
+
+# summarize number of sample sites per grid cell
+n.sites.cell.dt <- site.trnds.period.dt[, .(n.sites = .N), by = c('cell.id','trend.period')]
+
+# spatalize number of sample sites per grid cell
+blank.30km.r <- aoi.cellid.30km.r
+blank.30km.r[] <- NA
+
+n.sites.gte1985.30km.r <- blank.30km.r
+n.sites.gte1985.30km.r[n.sites.cell.dt[trend.period == '1985to2019']$cell.id] <- n.sites.cell.dt[trend.period == '1985to2019']$n.sites
+plot(n.sites.gte1985.30km.r)
+writeRaster(n.sites.gte1985.30km.r, 'output/lsat_vi_gs_site_trends/lsat_vi_gs_boreal_site_count_per_gridcell_1985to2019_30km_laea.tif' , datatype = 'INT2U', overwrite=T)
+
+n.sites.gte2000.30km.r <- blank.30km.r
+n.sites.gte2000.30km.r[n.sites.cell.dt[trend.period == '2000to2019']$cell.id] <- n.sites.cell.dt[trend.period == '2000to2019']$n.sites
+plot(n.sites.gte2000.30km.r)
+writeRaster(n.sites.gte2000.30km.r, 'output/lsat_vi_gs_site_trends/lsat_vi_gs_boreal_site_count_per_gridcell_2000to2019_30km_laea.tif' , datatype = 'INT2U', overwrite=T)
+
+# resample to 300 m (use these as data availability masks in the next steps)
+n.sites.gte1985.rsmpl.300m.r <- resample(n.sites.gte1985.30km.r, boreal.r, method = 'ngb')
+n.sites.gte2000.rsmpl.300m.r <- resample(n.sites.gte2000.30km.r, boreal.r, method = 'ngb')
+
+
 # ECOREGION: FRACTION OF TRENDS IN EACH ECOUNIT (SPATIALIZE) =========================================================================================
-str(ecounit.frac.trnds.dt)
+blank.300m.r <- boreal.r
+blank.300m.r[] <- NA
 
 ecounit.frac.trnds.ens.smry.dt <- ecounit.frac.trnds.dt[, .(n.sites.q500=quantile(n.sites, 0.500), n.sites.q025=quantile(n.sites,0.025), n.sites.q975=quantile(n.sites,0.975),
                                                         pcnt.sites.q500=quantile(pcnt.sites, 0.500), pcnt.sites.q025=quantile(pcnt.sites,0.025), pcnt.sites.q975=quantile(pcnt.sites,0.975)),
@@ -146,8 +230,8 @@ trend.cats <- c('browning','greening')
 vars <- unique(ecounit.frac.trnds.ens.smry.long.dt$variable)
 
 # i = trend.periods[1]
-# j = trend.cats[1]
-# k = vars[1]
+# j = trend.cats[2]
+# k = vars[4]
 
 for (i in trend.periods){
   for (j in trend.cats){
@@ -156,8 +240,15 @@ for (i in trend.periods){
       pxl.dt <- boreal.pxl.dt[dt, on = 'ecounit']
       pxl.dt <- na.omit(pxl.dt)
       
-      trnd.r <- boreal.r
+      trnd.r <- blank.300m.r
       trnd.r[pxl.dt$cellid] <- round(pxl.dt$value)
+      
+      # mask out 300 m ecounit grid cells if the overlaying 30 km grid cell doesn't contain any sample sites
+      if (i == '1985to2019'){
+        trnd.r <- mask(trnd.r, n.sites.gte1985.rsmpl.300m.r)
+      } else {
+        trnd.r <- mask(trnd.r, n.sites.gte2000.rsmpl.300m.r)
+      }
       
       outname <- paste0('output/lsat_vi_gs_ecounit_trends_frac/lsat_vi_gs_boreal_ecounit_', j,'_', gsub('\\.','_', k),'_', i,'_300m_laea.tif')
       writeRaster(trnd.r, outname, datatype = 'INT2U', overwrite=T)
@@ -181,8 +272,8 @@ ecounit.median.trnds.ens.smry.long.dt[, value := round(value)]
 trend.periods <- c('1985to2019','2000to2019')
 vars <- unique(ecounit.median.trnds.ens.smry.long.dt$variable)
 
-# i = trend.periods[1]
-# j = vars[1]
+# i = trend.periods[2]
+# j = vars[3]
 
 for (i in trend.periods){
   for(j in vars){
@@ -190,8 +281,15 @@ for (i in trend.periods){
     pxl.dt <- boreal.pxl.dt[dt, on = 'ecounit']
     pxl.dt <- na.omit(pxl.dt)
       
-    trnd.r <- boreal.r
+    trnd.r <- blank.300m.r
     trnd.r[pxl.dt$cellid] <- round(pxl.dt$value)
+    
+    # mask out 300 m ecounit grid cells if the overlaying 30 km grid cell doesn't contain any sample sites
+    if (i == '1985to2019'){
+      trnd.r <- mask(trnd.r, n.sites.gte1985.rsmpl.300m.r)
+    } else {
+      trnd.r <- mask(trnd.r, n.sites.gte2000.rsmpl.300m.r)
+    }
       
     outname <- paste0('output/lsat_vi_gs_ecounit_trends_median/lsat_vi_gs_boreal_ecounit_', gsub('\\.','_', j),'_', i,'_300m_laea.tif')
     writeRaster(trnd.r, outname, datatype = 'INT2S', overwrite=T)

@@ -3,13 +3,15 @@
 # Date: 2021-01-15
 #---------------------------------------------------------------------------------------------------------------------
 rm(list=ls())
+.libPaths(c(.libPaths(), "~/R/", "/home/lb968/R/4.0.2/"))
+require(R.utils)
+require(raster)
+require(rgdal)
+
 args <- commandArgs(TRUE)
 i = as.numeric(args[1])
 # i=1
 
-require(R.utils)
-require(raster)
-require(rgdal)
 wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 laea <- CRS("+proj=laea +lat_0=90 +lon_0=180 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 setwd('/projects/arctic/users/lberner/boreal_biome_shift/data/gis_data/terra_clim/')
